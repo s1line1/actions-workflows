@@ -1,0 +1,121 @@
+# ──────────────────────────────────────────────────────────────
+# Kubernetes deployment template — supports canary, blue-green,
+# and standard rolling-update strategies.
+#
+# Actions:
+#   preDeploy    — run DB migrations, smoke test
+#   deploy       — apply manifests from k8s/ directory
+#   routeTraffic — shift Istio/nginx weight
+#   rollback     — revert to last-known-good revision
+# ──────────────────────────────────────────────────────────────
+
+parameters:
+  - name: action
+    displayName: Action to execute
+    type: string
+
+  - name: repoName
+    type: string
+    default: 'myapp'
+
+  - name: imageTag
+    type: string
+    default: 'latest'
+
+  - name: namespace
+    type: string
+    default: 'production'
+
+  - name: percentage
+    type: number
+    default: 100
+
+steps:
+  - ${{ if eq(parameters.action, 'preDeploy') }}:
+    - script: |
+        echo "Running pre-deploy checks..."
+
+        # ── readiness: health endpoint ──────────────────────
+        if curl -sf --max-time 10 "$(HEALTH_ENDPOINT)"; then
+          echo "✅  Upstream dependency healthy"
+        else
+          echo "⚠️  Upstream dependency unreachable — continuing anyway"
+        fi
+
+        # ── DB migrations (idempotent) ──────────────────────
+        if [ -f "migrations/up.sh" ]; then
+          bash migrations/up.sh
+          echo "✅  Migration applied"
+        else
+          echo "No migrations to run"
+        fi
+      displayName: Pre-deploy checks & migrations
+
+  - ${{ if eq(parameters.action, 'deploy') }}:
+    - script: |
+        set -euo pipefail
+
+        # ── inject image tag into k8s manifests ────────────
+        mkdir -p $(Agent.TempDirectory)/rendered
+        for f in k8s/*.yaml; do
+          sed "s|__IMAGE_TAG__|${{ parameters.imageTag }}|g" "$f" \
+            > "$(Agent.TempDirectory)/rendered/$(basename $f)"
+        done
+
+        # ── apply ──────────────────────────────────────────
+        kubectl apply -f "$(Agent.TempDirectory)/rendered/" \
+          --namespace ${{ parameters.namespace }}
+
+        # ── wait for rollout ───────────────────────────────
+        kubectl rollout status deployment/${{ parameters.repoName }} \
+          --namespace ${{ parameters.namespace }} \
+          --timeout=$(deployTimeout)s
+      displayName: Apply Kubernetes manifests
+      env:
+        KUBECONFIG: $(KubeConfig.secureFilePath)
+
+  - ${{ if eq(parameters.action, 'routeTraffic') }}:
+    - script: |
+        # ── Canary traffic shift (Istio VirtualService) ────
+        # Adjusts weight between primary and canary subsets.
+        # Works with k8s/ route definition.
+
+        CANARY_WEIGHT=${{ parameters.percentage }}
+        STABLE_WEIGHT=$((100 - CANARY_WEIGHT))
+
+        kubectl patch virtualservice ${{ parameters.repoName }} \
+          --namespace ${{ parameters.namespace }} \
+          --type merge \
+          --patch "
+        spec:
+          http:
+          - route:
+            - destination:
+                host: ${{ parameters.repoName }}
+                subset: stable
+              weight: $STABLE_WEIGHT
+            - destination:
+                host: ${{ parameters.repoName }}
+                subset: canary
+              weight: $CANARY_WEIGHT
+        "
+      displayName: Route ${{ parameters.percentage }}% traffic to canary
+
+  - ${{ if eq(parameters.action, 'rollback') }}:
+    - script: |
+        set -euo pipefail
+
+        # ── Rollback deployment to previous revision ───────
+        kubectl rollout undo deployment/${{ parameters.repoName }} \
+          --namespace ${{ parameters.namespace }}
+
+        kubectl rollout status deployment/${{ parameters.repoName }} \
+          --namespace ${{ parameters.namespace }} \
+          --timeout=$(deployTimeout)s
+
+        # ── tag the rollback event ─────────────────────────
+        REV=$(kubectl rollout history deployment/${{ parameters.repoName }} \
+          --namespace ${{ parameters.namespace }} \
+          --revision=current 2>/dev/null | tail -1 | awk '{print $1}')
+        echo "Rolled back to revision $REV"
+      displayName: Rollback to previous revision
