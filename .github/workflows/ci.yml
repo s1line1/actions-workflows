@@ -153,7 +153,7 @@ jobs:
       - run: npm ci
         if: hashFiles('package-lock.json') != ''
 
-      - uses: dependency-check/Dependency-Check_Action@v1
+      - uses: dependency-check/Dependency-Check_Action@v3
         continue-on-error: true
         with:
           project: ${{ github.repository }}
