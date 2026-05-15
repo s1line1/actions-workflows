@@ -1,0 +1,271 @@
+# ──────────────────────────────────────────────────────────────
+# Reusable CI/CD workflow
+#
+# Usage (caller .github/workflows/ci.yml):
+#   jobs:
+#     ci:
+#       uses: s1line1/actions-workflows/.github/workflows/workflow.yml@main
+#       with:
+#         node-version: '20'
+#         acr-name: mycompany.azurecr.io
+#         image-name: myapp
+#       secrets:
+#         ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+#         ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+# ──────────────────────────────────────────────────────────────
+
+name: Shared CI
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version for setup-node
+        type: string
+        default: '20'
+      acr-name:
+        description: Azure Container Registry login server (empty = skip ACR)
+        type: string
+        default: ''
+      image-name:
+        description: Docker image name
+        type: string
+        default: 'app'
+      dockerfile:
+        description: Dockerfile path
+        type: string
+        default: 'Dockerfile'
+      codeql-languages:
+        description: Comma-separated CodeQL languages
+        type: string
+        default: 'javascript'
+      eslint-dir:
+        description: Directory for ESLint scan
+        type: string
+        default: 'src'
+      fail-on-cvss:
+        description: CVSS threshold for OWASP Dependency Check
+        type: number
+        default: 7
+      runs-on:
+        description: Runner image
+        type: string
+        default: 'ubuntu-latest'
+
+    secrets:
+      ACR_USERNAME:
+        description: ACR username (service principal)
+        required: false
+      ACR_PASSWORD:
+        description: ACR password / service principal secret
+        required: false
+
+    outputs:
+      image-tag:
+        description: Docker image tag (<run_number>-<short_sha>)
+        value: ${{ jobs.build.outputs.image-tag }}
+
+  workflow_dispatch:
+
+  # Self-test triggers (this repo only)
+  push:
+    branches: [main, 'releases/**']
+    paths-ignore: ['*.md', .gitignore]
+  pull_request:
+    branches: [main]
+    paths-ignore: ['*.md', .gitignore]
+
+permissions:
+  contents: read
+
+jobs:
+  # ══════════════════════════════════════════════════════════
+  # Lint
+  # ══════════════════════════════════════════════════════════
+  lint:
+    name: Lint & Format
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        if: hashFiles('package.json') != ''
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - run: npm ci
+        if: hashFiles('package-lock.json') != ''
+
+      - run: npx eslint ${{ inputs.eslint-dir }}/ --max-warnings=0
+        if: hashFiles('package.json') != ''
+
+      - run: npx prettier --check ${{ inputs.eslint-dir }}/
+        if: hashFiles('package.json') != ''
+        continue-on-error: true
+
+  # ══════════════════════════════════════════════════════════
+  # SAST — CodeQL
+  # ══════════════════════════════════════════════════════════
+  sast:
+    name: CodeQL
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ inputs.codeql-languages }}
+      - uses: github/codeql-action/analyze@v3
+
+  # ══════════════════════════════════════════════════════════
+  # Dependency Scan — OWASP Dependency Check
+  # ══════════════════════════════════════════════════════════
+  dependency-scan:
+    name: Dependency Scan
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        if: hashFiles('package.json') != ''
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - run: npm ci
+        if: hashFiles('package-lock.json') != ''
+
+      - uses: dependency-check/Dependency-Check_Action@v1
+        continue-on-error: true
+        with:
+          project: ${{ github.repository }}
+          path: .
+          format: SARIF
+          failOnCVSS: ${{ inputs.fail-on-cvss }}
+
+      - uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: reports/dependency-check-report.sarif
+
+  # ══════════════════════════════════════════════════════════
+  # Secret Scan — GitLeaks
+  # ══════════════════════════════════════════════════════════
+  secret-scan:
+    name: Secret Scan
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+
+  # ══════════════════════════════════════════════════════════
+  # Build — compile + test + Docker image
+  # ══════════════════════════════════════════════════════════
+  build:
+    name: Build & Test
+    runs-on: ${{ inputs.runs-on }}
+    needs: [lint, sast, dependency-scan, secret-scan]
+    outputs:
+      image-tag: ${{ steps.tag.outputs.image-tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        if: hashFiles('package.json') != ''
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - run: npm ci
+        if: hashFiles('package-lock.json') != ''
+      - run: npm run build
+        if: hashFiles('package.json') != ''
+      - run: npm test
+        if: hashFiles('package.json') != ''
+
+      - name: Compute image tag
+        id: tag
+        run: |
+          SHORT_SHA="$(echo '${{ github.sha }}' | cut -c1-7)"
+          echo "image-tag=${{ github.run_number }}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Docker build
+        run: |
+          docker build \
+            --label "git.commit=${{ github.sha }}" \
+            --label "git.branch=${{ github.ref_name }}" \
+            --label "build.run=${{ github.run_id }}" \
+            -f ${{ inputs.dockerfile }} \
+            -t ${{ inputs.image-name }}:${{ steps.tag.outputs.image-tag }} \
+            .
+
+  # ══════════════════════════════════════════════════════════
+  # Push to ACR (only when acr-name is configured)
+  # ══════════════════════════════════════════════════════════
+  push-acr:
+    name: Push to ACR
+    runs-on: ${{ inputs.runs-on }}
+    needs: build
+    if: inputs.acr-name != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/docker-login@v1
+        with:
+          login-server: ${{ inputs.acr-name }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Docker build & push
+        run: |
+          FULL_REF="${{ inputs.acr-name }}/${{ inputs.image-name }}:${{ needs.build.outputs.image-tag }}"
+          docker build \
+            --label "git.commit=${{ github.sha }}" \
+            --label "git.branch=${{ github.ref_name }}" \
+            --label "build.run=${{ github.run_id }}" \
+            -f ${{ inputs.dockerfile }} \
+            -t "$FULL_REF" \
+            .
+          docker push "$FULL_REF"
+
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          image-ref: ${{ inputs.acr-name }}/${{ inputs.image-name }}:${{ needs.build.outputs.image-tag }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+      - uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: trivy-results.sarif
+
+  # ══════════════════════════════════════════════════════════
+  # Tag Release — stamp git tag after successful push
+  # ══════════════════════════════════════════════════════════
+  tag-release:
+    name: Tag Release
+    runs-on: ${{ inputs.runs-on }}
+    needs: push-acr
+    if: inputs.acr-name != ''
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: |
+          set -euo pipefail
+          VERSION=$(cat VERSION 2>/dev/null || echo "0.1.0")
+          TAG="v${VERSION}+build.${{ github.run_id }}"
+          git tag -a "$TAG" -m "Release $TAG — ${{ github.sha }}"
+          git push origin "$TAG"
