@@ -28,12 +28,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        if: hashFiles('package.json') != ''
         with:
           node-version: 20
-          cache: npm
       - run: npm ci
+        if: hashFiles('package-lock.json') != ''
       - run: npx eslint src/ --max-warnings=0
+        if: hashFiles('package.json') != ''
       - run: npx prettier --check src/
+        if: hashFiles('package.json') != ''
         continue-on-error: true
 
   # ══════════════════════════════════════════════════════════
@@ -62,10 +65,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        if: hashFiles('package.json') != ''
         with:
           node-version: 20
-          cache: npm
       - run: npm ci
+        if: hashFiles('package-lock.json') != ''
       - uses: dependency-check/Dependency-Check_Action@v1
         continue-on-error: true
         with:
@@ -101,12 +105,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        if: hashFiles('package.json') != ''
         with:
           node-version: 20
-          cache: npm
       - run: npm ci
+        if: hashFiles('package-lock.json') != ''
       - run: npm run build
+        if: hashFiles('package.json') != ''
       - run: npm test
+        if: hashFiles('package.json') != ''
       - name: Docker build
         run: |
           docker build \
