@@ -60,7 +60,20 @@ on:
         description: ACR password / service principal secret
         required: false
 
-  # Allow testing workflow changes in this repo directly
+    outputs:
+      image-tag:
+        description: Docker image tag that was built
+        value: ${{ jobs.push-acr.outputs.image-tag || jobs.build.outputs.image-tag }}
+      full-image-ref:
+        description: Full ACR image reference
+        value: ${{ jobs.push-acr.outputs.full-image-ref }}
+      release-tag:
+        description: Git release tag that was stamped
+        value: ${{ jobs.tag-release.outputs.release-tag }}
+
+  workflow_dispatch:
+
+  # Self-test triggers (this repo only)
   push:
     branches: [main, 'releases/**']
     paths-ignore: ['*.md', .gitignore]
@@ -70,6 +83,9 @@ on:
 
 env:
   IMAGE_TAG: ${{ github.run_number }}-${{ github.sha_short }}
+
+permissions:
+  contents: read
 
 jobs:
   # ══════════════════════════════════════════════════════════
@@ -163,6 +179,8 @@ jobs:
     name: Build & Test
     runs-on: ${{ inputs.runs-on }}
     needs: [lint, sast, dependency-scan, secret-scan]
+    outputs:
+      image-tag: ${{ env.IMAGE_TAG }}
     steps:
       - uses: actions/checkout@v4
 
@@ -196,6 +214,9 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     needs: build
     if: inputs.acr-name != ''
+    outputs:
+      image-tag: ${{ env.IMAGE_TAG }}
+      full-image-ref: ${{ steps.push.outputs.full-ref }}
     steps:
       - uses: actions/checkout@v4
 
@@ -206,15 +227,18 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Docker build & push
+        id: push
         run: |
+          FULL_REF="${{ inputs.acr-name }}/${{ inputs.image-name }}:${{ env.IMAGE_TAG }}"
           docker build \
             --label "git.commit=${{ github.sha }}" \
             --label "git.branch=${{ github.ref_name }}" \
             --label "build.run=${{ github.run_id }}" \
             -f ${{ inputs.dockerfile }} \
-            -t ${{ inputs.acr-name }}/${{ inputs.image-name }}:${{ env.IMAGE_TAG }} \
+            -t "$FULL_REF" \
             .
-          docker push ${{ inputs.acr-name }}/${{ inputs.image-name }}:${{ env.IMAGE_TAG }}
+          docker push "$FULL_REF"
+          echo "full-ref=$FULL_REF" >> "$GITHUB_OUTPUT"
 
       - name: Trivy scan
         uses: aquasecurity/trivy-action@master
@@ -241,15 +265,19 @@ jobs:
     if: inputs.acr-name != ''
     permissions:
       contents: write
+    outputs:
+      release-tag: ${{ steps.tag.outputs.release-tag }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: |
+      - id: tag
+        run: |
           set -euo pipefail
           VERSION=$(cat VERSION 2>/dev/null || echo "0.1.0")
           TAG="v${VERSION}+build.${{ github.run_id }}"
           git tag -a "$TAG" -m "Release $TAG — ${{ github.sha }}"
           git push origin "$TAG"
+          echo "release-tag=$TAG" >> "$GITHUB_OUTPUT"
