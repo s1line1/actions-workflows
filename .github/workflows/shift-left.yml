@@ -4,7 +4,7 @@
 # Usage (caller .github/workflows/ci.yml):
 #   jobs:
 #     ci:
-#       uses: s1line1/actions-workflows/.github/workflows/ci.yml@main
+#       uses: s1line1/actions-workflows/.github/workflows/shift-left.yml@main
 #       with:
 #         acr-name: mycompany.azurecr.io
 #         image-name: myapp
