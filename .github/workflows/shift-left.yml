@@ -399,4 +399,6 @@ jobs:
     runs-on: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.runs-on || github.event_name == 'workflow_call' && inputs.runs-on || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
-      - run: echo "This is a test job. Replace with actual steps."
+      - run: |
+          echo "This is a test job. Replace with actual steps."
+          echo "ACR Name: ${{inputs.acr-name}}"
