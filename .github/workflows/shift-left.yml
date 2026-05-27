@@ -318,77 +318,11 @@ on:
       acr-name:
         type: string
         default: ''
-  # workflow_call:
-  #   inputs:
-  #     node-version:
-  #       type: string
-  #       default: '20'
-  #     acr-name:
-  #       type: string
-  #       default: ''
-  #     image-name:
-  #       type: string
-  #       default: 'app'
-  #     dockerfile:
-  #       type: string
-  #       default: 'Dockerfile'
-  #     codeql-languages:
-  #       type: string
-  #       default: 'javascript'
-  #     eslint-dir:
-  #       type: string
-  #       default: 'src'
-  #     fail-on-cvss:
-  #       type: number
-  #       default: 7
-  #     runs-on:
-  #       type: string
-  #       default: 'ubuntu-latest'
-
-  #   secrets:
-  #     ACR_USERNAME:
-  #       required: false
-  #     ACR_PASSWORD:
-  #       required: false
-
-  #   outputs:
-  #     has-docker:
-  #       description: Whether docker-image.yml with images key was found
-  #       value: ${{ jobs.check-docker-config.outputs.has-docker }}
-  #     image-tag:
-  #       description: Docker image tag (<run_number>-<short_sha>)
-  #       value: ${{ jobs.build.outputs.image-tag }}
-
-  # workflow_dispatch:
-  #   inputs:
-  #     node-version:
-  #       type: string
-  #       default: '20'
-  #     acr-name:
-  #       type: string
-  #       default: ''
-  #     image-name:
-  #       type: string
-  #       default: 'app'
-  #     dockerfile:
-  #       type: string
-  #       default: 'Dockerfile'
-  #     codeql-languages:
-  #       type: string
-  #       default: 'javascript'
-  #     eslint-dir:
-  #       type: string
-  #       default: 'src'
-  #     fail-on-cvss:
-  #       type: number
-  #       default: 7
-  #     runs-on:
-  #       type: string
-  #       default: 'ubuntu-latest'
 
   push:
     branches: [main, 'releases/**']
     paths-ignore: ['*.md', .gitignore]
+    
   pull_request:
     branches: [main]
     paths-ignore: ['*.md', .gitignore']
@@ -399,4 +333,6 @@ jobs:
     runs-on: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.runs-on || github.event_name == 'workflow_call' && inputs.runs-on || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
-      - run: echo "This is a test job. Replace with actual steps."
+      - run: |
+          echo "This is a test job. Replace with actual steps."
+          echo "ACR Name: ${{inputs.acr-name}}"
