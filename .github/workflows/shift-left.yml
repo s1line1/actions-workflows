@@ -331,12 +331,57 @@ on:
     paths-ignore: ['*.md', '.gitignore']
 
 jobs:
-  test:
-    name: Test job
+  # ══════════════════════════════════════════════════════════
+  # Lint — Java (Maven)
+  # ══════════════════════════════════════════════════════════
+  lint:
+    name: Lint & Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        if: hashFiles('pom.xml') != ''
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - run: mvn compile -q
+        if: hashFiles('pom.xml') != ''
+
       - run: |
-          echo "This is a test job. Replace with actual steps."
-          echo "ACR Name: ${{inputs.acr-name}}"
-          echo "Run Number: ${{inputs.run-number}}"
+          if grep -q 'maven-checkstyle-plugin' pom.xml; then
+            mvn checkstyle:check -q
+          else
+            echo "checkstyle not configured, skipping"
+          fi
+        if: hashFiles('pom.xml') != ''
+
+      - run: |
+          if grep -q 'spotless-maven-plugin' pom.xml; then
+            mvn spotless:check -q
+          else
+            echo "spotless not configured, skipping"
+          fi
+        if: hashFiles('pom.xml') != ''
+         
+  # unit_test:
+  #   name: Run Unit Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+
+  #     - name: Build test image
+  #       run: |
+  #         docker build \
+  #           -f Dockerfile.test \
+  #           -t springboot-test:${{ github.sha }} \
+  #           .
+
+  #     - name: Run mvn clean verify
+  #       run: |
+  #         docker run --rm \
+  #           springboot-test:${{ github.sha }} \
+  #           bash cicd/run-test.sh
