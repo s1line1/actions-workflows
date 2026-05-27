@@ -340,12 +340,13 @@ jobs:
   # Check — verify docker-image.yml exists and has images key
   # ══════════════════════════════════════════════════════════
   check-docker-config:
-    name: Check docker-image.yml
+    name: Check docker config
     runs-on: ${{ github.event_name == 'workflow_call' && inputs.runs-on || 'ubuntu-latest' }}
     outputs:
       has-docker: ${{ steps.check.outputs.has-docker }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Check docker-image.yml
+        uses: actions/checkout@v4
       - id: check
         run: |
           if [ -f docker-image.yml ] && grep -q '^images:' docker-image.yml; then
