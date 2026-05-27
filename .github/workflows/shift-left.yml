@@ -322,6 +322,14 @@ on:
         type: number
         default: 0
 
+    outputs:
+      has-docker:
+        description: Whether docker-image.yml with images key was found
+        value: ${{ jobs.check-docker-config.outputs.has-docker }}
+      image-tag:
+        description: Docker image tag (<run_number>-<short_sha>)
+        value: ${{ jobs.build.outputs.image-tag }}
+
   push:
     branches: [main, 'releases/**']
     paths-ignore: ['*.md', '.gitignore']
@@ -331,6 +339,26 @@ on:
     paths-ignore: ['*.md', '.gitignore']
 
 jobs:
+  # ══════════════════════════════════════════════════════════
+  # Check — verify docker-image.yml exists and has images key
+  # ══════════════════════════════════════════════════════════
+  check-docker-config:
+    name: Check docker-image.yml
+    runs-on: ${{ github.event_name == 'workflow_call' && inputs.runs-on || 'ubuntu-latest' }}
+    outputs:
+      has-docker: ${{ steps.check.outputs.has-docker }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if [ -f docker-image.yml ] && grep -q '^images:' docker-image.yml; then
+            echo "has-docker=true" >> "$GITHUB_OUTPUT"
+            echo "docker-image.yml found with images module"
+          else
+            echo "has-docker=false" >> "$GITHUB_OUTPUT"
+            echo "docker-image.yml missing or no images key — skipping Docker jobs"
+          fi
+
   # ══════════════════════════════════════════════════════════
   # Lint — Java (Maven)
   # ══════════════════════════════════════════════════════════
