@@ -330,7 +330,7 @@ on:
 jobs:
   test:
     name: Test job
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.runs-on || github.event_name == 'workflow_call' && inputs.runs-on || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: |
