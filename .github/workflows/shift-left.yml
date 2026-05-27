@@ -318,6 +318,9 @@ on:
       acr-name:
         type: string
         default: ''
+      event_number:
+        type: number
+        default: '${{ github.run_number }}'
 
   push:
     branches: [main, 'releases/**']
@@ -336,3 +339,4 @@ jobs:
       - run: |
           echo "This is a test job. Replace with actual steps."
           echo "ACR Name: ${{inputs.acr-name}}"
+          echo "Event Number: ${{inputs.event_number}}"
