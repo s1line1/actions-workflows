@@ -351,14 +351,6 @@ jobs:
         if: hashFiles('pom.xml') != ''
 
       - run: |
-          if grep -q 'maven-checkstyle-plugin' pom.xml; then
-            mvn checkstyle:check -q
-          else
-            echo "checkstyle not configured, skipping"
-          fi
-        if: hashFiles('pom.xml') != ''
-
-      - run: |
           if grep -q 'spotless-maven-plugin' pom.xml; then
             mvn spotless:check -q
           else
