@@ -1,17 +1,17 @@
-# # ──────────────────────────────────────────────────────────────
-# # Reusable CI/CD workflow
-# #
-# # Usage (caller .github/workflows/ci.yml):
-# #   jobs:
-# #     ci:
-# #       uses: s1line1/actions-workflows/.github/workflows/workflow.yml@main
-# #       with:
-# #         acr-name: mycompany.azurecr.io
-# #         image-name: myapp
-# #       secrets:
-# #         ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
-# #         ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
-# # ──────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# Reusable CI/CD workflow
+#
+# Usage (caller .github/workflows/ci.yml):
+#   jobs:
+#     ci:
+#       uses: s1line1/actions-workflows/.github/workflows/ci.yml@main
+#       with:
+#         acr-name: mycompany.azurecr.io
+#         image-name: myapp
+#       secrets:
+#         ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+#         ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+# ──────────────────────────────────────────────────────────────
 
 # name: CI shift-left
 
@@ -313,6 +313,11 @@
 name: CI shift-left
 
 on:
+  workflow_call:
+    inputs:
+      acr-name:
+        type: string
+        default: ''
   # workflow_call:
   #   inputs:
   #     node-version:
