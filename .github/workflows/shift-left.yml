@@ -347,10 +347,12 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - run: mvn compile -q
+      - name: Compile
+        run: mvn compile -q
         if: hashFiles('pom.xml') != ''
 
-      - run: |
+      - name: Check Formatting
+        run: |
           if grep -q 'spotless-maven-plugin' pom.xml; then
             mvn spotless:check -q
           else
