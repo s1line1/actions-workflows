@@ -343,20 +343,38 @@ jobs:
     name: Check docker config
     runs-on: ${{ github.event_name == 'workflow_call' && inputs.runs-on || 'ubuntu-latest' }}
     outputs:
-      has-docker: ${{ steps.check.outputs.has-docker }}
+      has-docker-image: ${{ steps.check.outputs.has-docker-image }}
+      image-name: ${{ steps.check.outputs.image-name }}
     steps:
-      - name: Check docker-image.yml
+      - name: Checkout
         uses: actions/checkout@v4
       
       - name: Check for docker-image.yml with images key
         id: check
         run: |
           if [ -f docker-image.yml ] && grep -q '^images:' docker-image.yml; then
-            echo "has-docker=true" >> "$GITHUB_OUTPUT"
+            echo "has-docker-image=true" >> "$GITHUB_OUTPUT"
             echo "docker-image.yml found with images module"
           else
-            echo "has-docker=false" >> "$GITHUB_OUTPUT"
+            echo "has-docker-image=false" >> "$GITHUB_OUTPUT"
             echo "docker-image.yml missing or no images key — skipping Docker jobs"
+          fi
+
+      - name: Parse docker-image.yml
+        if: steps.check.outputs.has-docker-image == 'true'
+        id: parse
+        run: |
+          if [ -f docker-image.yml ] && grep -q '^images:' docker-image.yml; then
+            echo "has-docker-image=true" >> "$GITHUB_OUTPUT"
+            yq '.images[0] | .name, .dockerfile' docker-image.yml |
+            {
+              read -r name
+              read -r dockerfile
+              echo "image-name=$name" >> "$GITHUB_OUTPUT"
+              echo "dockerfile=$dockerfile" >> "$GITHUB_OUTPUT"
+            }
+          else
+            echo "has-docker-image=false" >> "$GITHUB_OUTPUT"
           fi
 
   # ══════════════════════════════════════════════════════════
