@@ -35,14 +35,6 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install yq and jq
-        run: |
-          python -m pip install --upgrade pip
-          pip install yq jq
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: check docker-image.yml exists
         id: check-exists
         run: |
