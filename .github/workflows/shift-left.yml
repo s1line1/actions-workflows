@@ -323,9 +323,9 @@ on:
         default: 0
 
     outputs:
-      has-docker:
+      has-docker-image:
         description: Whether docker-image.yml with images key was found
-        value: ${{ jobs.check-docker-config.outputs.has-docker }}
+        value: ${{ jobs.check-docker-config.outputs.has-docker-image }}
 
   push:
     branches: [main, 'releases/**']
