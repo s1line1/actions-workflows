@@ -457,6 +457,7 @@ jobs:
     name: Load secrets from OSS
     needs: [check-docker-config,parse-docker-config-images]
     runs-on: ubuntu-latest
+    if: ${{ secrets.access_key_id && secrets.access_key_secret && inputs.OSS_ENDPOINT && inputs.OSS_BUCKET }}
     steps:
       - uses: actions/checkout@v4
 
@@ -466,7 +467,6 @@ jobs:
 
       - name: Output secrets for debugging
         id: get-secrets
-        if: ${{ secrets.access_key_id && secrets.access_key_secret && inputs.OSS_ENDPOINT && inputs.OSS_BUCKET }}
         run: |
           pip install oss2
           python get_oss_secrets.py \
