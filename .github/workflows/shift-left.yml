@@ -355,7 +355,7 @@ permissions:
 jobs:
   check-docker-config:
     name: Check docker config
-    uses: ./.github/workflows/_check-docker-config.yml
+    uses: ./.github/ref_workflows/_check-docker-config.yml
 
   load_secrets:
     name: Load secrets from OSS

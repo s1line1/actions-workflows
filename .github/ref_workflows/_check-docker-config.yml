@@ -1,4 +1,4 @@
-name: Check Config
+# name: Check Config
 
 on:
   workflow_call:
