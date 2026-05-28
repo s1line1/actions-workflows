@@ -363,9 +363,12 @@ jobs:
     runs-on: ubuntu-latest
     if: inputs.OSS_ENDPOINT != '' && inputs.OSS_BUCKET != ''
     steps:
+      # checkout 当前业务 repo
       - uses: actions/checkout@v4
 
-      - uses: actions/checkout@v4
+      # checkout reusable workflow repo
+      - name: Checkout actions-workflows
+        uses: actions/checkout@v4
         with:
           repository: s1line1/actions-workflows
           path: actions-workflows
@@ -374,6 +377,11 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install oss2 yq
+
       - name: Output secrets for debugging
         id: get-secrets
         run: |
@@ -381,8 +389,6 @@ jobs:
             echo "OSS secrets not configured, skipping"
             exit 0
           fi
-          python -m pip install --upgrade pip
-          pip install yq jq
           pip install oss2
           python ./actions-workflows/scripts/get_oss_secrets.py \
             --ak "${{ secrets.access_key_id }}" \
