@@ -357,6 +357,16 @@ jobs:
     name: Check docker config
     uses: ./.github/workflows/_check-docker-config.yml
 
+  test_config:
+    name: Test config parsing
+    needs: check-docker-config
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "has-docker-image: ${{ needs.check-docker-config.outputs.has-docker-image }}"
+          echo "images: ${{ needs.check-docker-config.outputs.images }}"
+          echo "tests: ${{ needs.check-docker-config.outputs.tests }}"
+
   load_secrets:
     name: Load secrets from OSS
     needs: [check-docker-config]
