@@ -466,6 +466,7 @@ jobs:
 
       - name: Output secrets for debugging
         id: get-secrets
+        if: ${{ secrets.access_key_id && secrets.access_key_secret && inputs.OSS_ENDPOINT && inputs.OSS_BUCKET }}
         run: |
           pip install oss2
           python get_oss_secrets.py \
