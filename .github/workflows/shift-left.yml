@@ -415,14 +415,14 @@ jobs:
   unit_test:
     name: Run Unit Tests
     needs: check-docker-config
-    if: needs.check-docker-config.outputs.has-docker-image == 'true'
+    if: needs.check-docker-config.outputs.has-docker-image == 'true' && needs.check-docker-config.outputs.tests == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Build test image
-        if: hashFiles(${{ needs.check-docker-config.outputs.tests-dockerfile }}) != ''
+        if: needs.check-docker-config.outputs.tests-dockerfile != 'null' && hashFiles( needs.check-docker-config.outputs.tests-dockerfile ) != ''
         run: |
           docker build \
             -f ${{ needs.check-docker-config.outputs.tests-dockerfile }} \
@@ -430,7 +430,7 @@ jobs:
             .
 
       - name: Run mvn clean verify
-        if: hashFiles(${{ needs.check-docker-config.outputs.tests-dockerfile }}) != '' and hashFiles(${{ needs.check-docker-config.outputs.tests-command }}) != ''
+        if: needs.check-docker-config.outputs.tests-command != 'null' && hashFiles( needs.check-docker-config.outputs.tests-dockerfile ) != '' && hashFiles( needs.check-docker-config.outputs.tests-command ) != ''
         run: |
           docker run --rm \
             springboot-test:${{ github.sha }} \

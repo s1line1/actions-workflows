@@ -12,6 +12,15 @@ permissions:
   actions: read
 
 jobs:
+  Debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug
+        run: |
+          pwd
+          ls -al
+          env   
+
   CICD:
     name: Run shift-left and Deploy Workflows
     uses: ./.github/workflows/shift-left.yml
