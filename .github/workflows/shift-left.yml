@@ -398,8 +398,11 @@ jobs:
         if: steps.check.outputs.has-docker-image == 'true'
         id: parse-tests
         run: |
-          tests_exists = if [ -f docker-image.yml ] && grep -q '^tests:' docker-image.yml; then echo "true"; else echo "false"; fi
-          echo "tests=$tests_exists" >> "$GITHUB_OUTPUT"
+          if [ -f docker-image.yml ] && grep -q '^tests:' docker-image.yml; then
+            echo "tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests=false" >> "$GITHUB_OUTPUT"
+          fi
           yq '.tests[]? | .name, .dockerfile_tests, .test_command' docker-image.yml |
           while read -r test_name && read -r test_dockerfile && read -r test_command; do
             echo "Test Name: $test_name"
