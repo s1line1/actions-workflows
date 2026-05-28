@@ -16,27 +16,6 @@ on:
       tests:
         description: JSON array of tests from docker-image.yml
         value: ${{ jobs.check-docker-config.outputs.tests }}
-      # image-name:
-      #   description: First image name
-      #   value: ${{ jobs.parse-docker-config-images.outputs.name }}
-      # dockerfile:
-      #   description: First image dockerfile
-      #   value: ${{ jobs.parse-docker-config-images.outputs.dockerfile }}
-      # registry:
-      #   description: First image registry
-      #   value: ${{ jobs.parse-docker-config-images.outputs.registry }}
-      # namespace:
-      #   description: First image namespace
-      #   value: ${{ jobs.parse-docker-config-images.outputs.namespace }}
-      # test-name:
-      #   description: First test name
-      #   value: ${{ jobs.parse-docker-config-tests.outputs.name }}
-      # test-dockerfile:
-      #   description: First test dockerfile
-      #   value: ${{ jobs.parse-docker-config-tests.outputs.dockerfile }}
-      # test-command:
-      #   description: First test command
-      #   value: ${{ jobs.parse-docker-config-tests.outputs.command }}
 
 jobs:
   check-docker-config:
