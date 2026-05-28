@@ -345,28 +345,7 @@ on:
         description: Whether docker-image.yml with images key was found
         value: ${{ jobs.check-docker-config.outputs.has-docker-image }}
 
-  # push:
-  #   branches: [main, 'releases/**']
-  #   paths-ignore: ['*.md', '.gitignore']
-
-  # pull_request:
-  #   branches: [main]
-  #   paths-ignore: ['*.md', '.gitignore']
-
 jobs:
-  # ══════════════════════════════════════════════════════════
-  # Check — verify docker-image.yml exists and has images key
-  # ══════════════════════════════════════════════════════════
-  out_inputs:
-    name: Set outputs for caller workflow
-    runs-on: ubuntu-latest
-    steps:
-      - name: Output values for caller workflow
-        run: |
-          echo "acr-name=${{ inputs.acr-name }}"
-          echo "run-number=${{ inputs.run-number }}"
-          echo "tag-sha=${{ inputs.tag-sha }}"
-
   check-docker-config:
     name: Check docker config
     runs-on: ${{ github.event_name == 'workflow_call' && inputs.runs-on || 'ubuntu-latest' }}
