@@ -355,12 +355,12 @@ jobs:
   unit_test:
     name: Run Unit Tests
     runs-on: ubuntu-latest
-    if: hashFiles('Dockerfile.test') != ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Build test image
+        if: hashFiles('Dockerfile.test') != ''
         run: |
           docker build \
             -f Dockerfile.test \
@@ -368,6 +368,7 @@ jobs:
             .
 
       - name: Run mvn clean verify
+        if: hashFiles('Dockerfile.test') != ''
         run: |
           docker run --rm \
             springboot-test:${{ github.sha }} \
@@ -378,8 +379,10 @@ jobs:
     runs-on: ${{ github.event_name == 'workflow_call' && inputs.runs-on || 'ubuntu-latest' }}
     outputs:
       has-docker-image: ${{ steps.check.outputs.has-docker-image }}
-      image-name: ${{ steps.parse.outputs.image-name }}
-      dockerfile: ${{ steps.parse.outputs.dockerfile }}
+      image-name: ${{ steps.parse-images.outputs.image-name }}
+      images-dockerfile: ${{ steps.parse-images.outputs.dockerfile }}
+      tests-dockerfile: ${{ steps.parse-tests.outputs.dockerfile_tests }}
+      tests-command: ${{ steps.parse-tests.outputs.test_command }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -395,9 +398,9 @@ jobs:
             echo "docker-image.yml missing or no images key — skipping Docker jobs"
           fi
 
-      - name: Parse docker-image.yml
+      - name: Parse images
         if: steps.check.outputs.has-docker-image == 'true'
-        id: parse
+        id: parse-images
         run: |
           if [ -f docker-image.yml ] && grep -q '^images:' docker-image.yml; then
             echo "has-docker-image=true" >> "$GITHUB_OUTPUT"
@@ -406,22 +409,35 @@ jobs:
               read -r name
               read -r dockerfile
               echo "image-name=$name" >> "$GITHUB_OUTPUT"
-              echo "dockerfile=$dockerfile" >> "$GITHUB_OUTPUT"
+              echo "images-dockerfile=$dockerfile" >> "$GITHUB_OUTPUT"
             }
           else
             echo "has-docker-image=false" >> "$GITHUB_OUTPUT"
           fi
-
-  test-parse:
-    name: Test parse step
-    runs-on: ubuntu-latest
-    needs: check-docker-config
-    if: needs.check-docker-config.outputs.has-docker-image == 'true'
-    steps:
-      - name: Output parsed values
+      
+      - name: Parse Tests
+        if: steps.check.outputs.has-docker-image == 'true'
+        id: parse-tests
         run: |
-          echo "Parsed image name: ${{ needs.check-docker-config.outputs.image-name }}"
-          echo "Parsed dockerfile: ${{ needs.check-docker-config.outputs.dockerfile }}"
+          yq '.tests[]? | .name, .dockerfile_tests, .test_command' docker-image.yml |
+          while read -r test_name && read -r test_dockerfile && read -r test_command; do
+            echo "Test Name: $test_name"
+            echo "Test Dockerfile: $test_dockerfile"
+            echo "Test Command: $test_command"
+            echo "tests-dockerfile=$test_dockerfile" >> "$GITHUB_OUTPUT"
+            echo "tests-command=$test_command" >> "$GITHUB_OUTPUT"
+          done
+
+  # test-parse:
+  #   name: Test parse step
+  #   runs-on: ubuntu-latest
+  #   needs: check-docker-config
+  #   if: needs.check-docker-config.outputs.has-docker-image == 'true'
+  #   steps:
+  #     - name: Output parsed values
+  #       run: |
+  #         echo "Parsed image name: ${{ needs.check-docker-config.outputs.image-name }}"
+  #         echo "Parsed dockerfile: ${{ needs.check-docker-config.outputs.images-dockerfile }}"
 
   # ══════════════════════════════════════════════════════════
   # Lint — Java (Maven)
