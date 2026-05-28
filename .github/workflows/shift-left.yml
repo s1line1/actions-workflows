@@ -345,115 +345,30 @@ on:
         description: Whether docker-image.yml with images key was found
         value: ${{ jobs.check-docker-config.outputs.has-docker-image }}
 
-  # push:
-  #   branches: [main, 'releases/**']
-  #   paths-ignore: ['*.md', '.gitignore']
+  pull_request:
+    branches: [main]
 
-  # pull_request:
-  #   branches: [main]
-  #   paths-ignore: ['*.md', '.gitignore']
+permissions:
+  contents: read
+  actions: read
 
 jobs:
-  # ══════════════════════════════════════════════════════════
-  # Check — verify docker-image.yml exists and has images key
-  # ══════════════════════════════════════════════════════════
-  out_inputs:
-    name: Set outputs for caller workflow
-    runs-on: ubuntu-latest
-    steps:
-      - name: Output values for caller workflow
-        run: |
-          echo "acr-name=${{ inputs.acr-name }}"
-          echo "run-number=${{ inputs.run-number }}"
-          echo "tag-sha=${{ inputs.tag-sha }}"
-
   check-docker-config:
     name: Check docker config
-    runs-on: ${{ github.event_name == 'workflow_call' && inputs.runs-on || 'ubuntu-latest' }}
-    outputs:
-      has-docker-image: ${{ steps.check-exists.outputs.has-docker-image }}
-      tests: ${{ steps.parse-tests.outputs.tests }}
-      images: ${{ steps.parse-images.outputs.images }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: check docker-image.yml exists
-        id: check-exists
-        run: |
-          if [ -f docker-image.yml ]; then
-            echo "has-docker-image=true" >> "$GITHUB_OUTPUT"
-            echo "docker-image.yml found with images module"
-          else
-            echo "has-docker-image=false" >> "$GITHUB_OUTPUT"
-            echo "docker-image.yml missing or no images key — skipping Docker jobs"
-          fi
-
-      - name: Parse images module
-        id: parse-images
-        if: steps.check-exists.outputs.has-docker-image == 'true'
-        run: |
-          # Check for images module
-          if yq -e '.images | length > 0' docker-image.yml; then
-            echo "images=$(yq -o=json '.images' docker-image.yml | jq -c .)" >> "$GITHUB_OUTPUT"
-          else
-            echo "images=[]" >> "$GITHUB_OUTPUT"
-          fi
-        
-      - name: Parse tests module
-        id: parse-tests
-        if: steps.check-exists.outputs.has-docker-image == 'true'
-        run: |
-          # Check for tests module
-          if yq -e '.tests | length > 0' docker-image.yml > /dev/null 2>&1; then
-            echo "tests=$(yq -o=json '.tests' docker-image.yml | jq -c .)" >> "$GITHUB_OUTPUT"
-          else
-            echo "tests=[]" >> "$GITHUB_OUTPUT"
-          fi
-
-  parse-docker-config-images:
-    name: Parse images content
-    needs: [check-docker-config]
-    runs-on: ubuntu-latest
-    if: needs.check-docker-config.outputs.has-docker-image == 'true'
-    outputs:
-      name: ${{ steps.parse.outputs.name }}
-      dockerfile: ${{ steps.parse.outputs.dockerfile }}
-      registry: ${{ steps.parse.outputs.registry }}
-      namespace: ${{ steps.parse.outputs.namespace }}
-    steps:
-      - name: Output parsed images for debugging
-        id: parse
-        run: |
-          echo "name=$(echo '${{ needs.check-docker-config.outputs.images }}' | jq -r '.[0].name // empty')" >> "$GITHUB_OUTPUT"
-          echo "dockerfile=$(echo '${{ needs.check-docker-config.outputs.images }}' | jq -r '.[0].dockerfile // empty')" >> "$GITHUB_OUTPUT"
-          echo "registry=$(echo '${{ needs.check-docker-config.outputs.images }}' | jq -r '.[0].registry // empty')" >> "$GITHUB_OUTPUT"
-          echo "namespace=$(echo '${{ needs.check-docker-config.outputs.images }}' | jq -r '.[0].namespace // empty')" >> "$GITHUB_OUTPUT"
-
-  parse-docker-config-tests:
-    name: Parse tests content
-    needs: [check-docker-config]
-    runs-on: ubuntu-latest
-    if: needs.check-docker-config.outputs.has-docker-image == 'true'
-    outputs:
-      name: ${{ steps.parse.outputs.name }}
-      dockerfile: ${{ steps.parse.outputs.dockerfile }}
-      command: ${{ steps.parse.outputs.command }}
-    steps:
-      - name: Output parsed tests for debugging
-        id: parse
-        run: |
-          echo "name=$(echo '${{ needs.check-docker-config.outputs.tests }}' | jq -r '.[0].name // empty')" >> "$GITHUB_OUTPUT"
-          echo "dockerfile=$(echo '${{ needs.check-docker-config.outputs.tests }}' | jq -r '.[0].dockerfile // empty')" >> "$GITHUB_OUTPUT"
-          echo "command=$(echo '${{ needs.check-docker-config.outputs.tests }}' | jq -r '.[0].command // empty')" >> "$GITHUB_OUTPUT"
+    uses: ./.github/workflows/_check-docker-config.yml
 
   load_secrets:
     name: Load secrets from OSS
-    needs: [check-docker-config,parse-docker-config-images]
+    needs: [check-docker-config]
     runs-on: ubuntu-latest
     if: inputs.OSS_ENDPOINT != '' && inputs.OSS_BUCKET != ''
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: s1line1/actions-workflows
+          path: actions-workflows
 
       - uses: actions/setup-python@v5
         with:
@@ -466,8 +381,10 @@ jobs:
             echo "OSS secrets not configured, skipping"
             exit 0
           fi
+          python -m pip install --upgrade pip
+          pip install yq jq
           pip install oss2
-          python get_oss_secrets.py \
+          python ./actions-workflows/scripts/get_oss_secrets.py \
             --ak "${{ secrets.access_key_id }}" \
             --sk "${{ secrets.access_key_secret }}" \
             --endpoint "${{ inputs.OSS_ENDPOINT }}" \
@@ -477,16 +394,16 @@ jobs:
       - name: Login to ACR
         if: env.DOCKER_ALICLOUD_USERNAME != '' && env.DOCKER_ALICLOUD_PASSWORD != ''
         run: |
-          if [ -z "${{ needs.parse-docker-config-images.outputs.registry }}" ]; then
+          if [ -z "${{ fromJSON(needs.check-docker-config.outputs.images)[0].registry }}" ]; then
             echo "Registry not found in docker-image.yml, skipping"
             exit 0
           fi
           echo "$DOCKER_ALICLOUD_PASSWORD" | docker login -u "$DOCKER_ALICLOUD_USERNAME" \
-                  --password-stdin "${{ needs.parse-docker-config-images.outputs.registry }}"
+                  --password-stdin "${{ fromJSON(needs.check-docker-config.outputs.images)[0].registry }}"
 
   unit_test:
-    name: Run ${{ needs.parse-docker-config-tests.outputs.name }} Unit Tests
-    needs: [check-docker-config,parse-docker-config-tests]
+    name: Run ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].name }} Unit Tests
+    needs: [check-docker-config]
     if: needs.check-docker-config.outputs.has-docker-image == 'true' && needs.check-docker-config.outputs.tests != '[]'
     runs-on: ubuntu-latest
     steps:
@@ -494,49 +411,24 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build test image
-        if: needs.parse-docker-config-tests.outputs.dockerfile != 'null' && hashFiles( needs.parse-docker-config-tests.outputs.dockerfile ) != ''
+        if: fromJSON(needs.check-docker-config.outputs.tests)[0].dockerfile != 'null' && hashFiles( fromJSON(needs.check-docker-config.outputs.tests)[0].dockerfile ) != ''
         run: |
           docker build \
-            -f ${{ needs.parse-docker-config-tests.outputs.dockerfile }} \
+            -f ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].dockerfile }} \
             -t springboot-test:${{ github.sha }} \
             .
 
       - name: Run mvn clean verify
-        if: needs.parse-docker-config-tests.outputs.command != 'null' && hashFiles( needs.parse-docker-config-tests.outputs.command ) != ''
+        if: fromJSON(needs.check-docker-config.outputs.tests)[0].command != 'null' && hashFiles( fromJSON(needs.check-docker-config.outputs.tests)[0].command ) != ''
         run: |
           docker run --rm \
             springboot-test:${{ github.sha }} \
-            bash ${{ needs.parse-docker-config-tests.outputs.command }}
+            bash ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].command }}
 
 
   # ══════════════════════════════════════════════════════════
   # Lint — Java (Maven)
   # ══════════════════════════════════════════════════════════
-  lint:
-    name: Lint & Format
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        if: hashFiles('pom.xml') != ''
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: maven
-
-      - name: Compile
-        run: mvn compile -q
-        if: hashFiles('pom.xml') != ''
-
-      - name: Check Formatting
-        run: |
-          if grep -q 'spotless-maven-plugin' pom.xml; then
-            mvn spotless:check -q
-          else
-            echo "spotless not configured, skipping"
-          fi
-        if: hashFiles('pom.xml') != ''
          
   # unit_test:
   #   name: Run Unit Tests
