@@ -347,7 +347,9 @@ jobs:
     steps:
       - name: Check docker-image.yml
         uses: actions/checkout@v4
-      - id: check
+      
+      - name: Check for docker-image.yml with images key
+        id: check
         run: |
           if [ -f docker-image.yml ] && grep -q '^images:' docker-image.yml; then
             echo "has-docker=true" >> "$GITHUB_OUTPUT"
