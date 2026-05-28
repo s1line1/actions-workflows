@@ -352,37 +352,15 @@ jobs:
           echo "run-number=${{ inputs.run-number }}"
           echo "tag-sha=${{ inputs.tag-sha }}"
 
-  unit_test:
-    name: Run Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build test image
-        if: hashFiles('Dockerfile.test') != ''
-        run: |
-          docker build \
-            -f Dockerfile.test \
-            -t springboot-test:${{ github.sha }} \
-            .
-
-      - name: Run mvn clean verify
-        if: hashFiles('Dockerfile.test') != ''
-        run: |
-          docker run --rm \
-            springboot-test:${{ github.sha }} \
-            bash cicd/run-test.sh
-
   check-docker-config:
     name: Check docker config
     runs-on: ${{ github.event_name == 'workflow_call' && inputs.runs-on || 'ubuntu-latest' }}
     outputs:
       has-docker-image: ${{ steps.check.outputs.has-docker-image }}
       image-name: ${{ steps.parse-images.outputs.image-name }}
-      images-dockerfile: ${{ steps.parse-images.outputs.dockerfile }}
-      tests-dockerfile: ${{ steps.parse-tests.outputs.dockerfile_tests }}
-      tests-command: ${{ steps.parse-tests.outputs.test_command }}
+      images-dockerfile: ${{ steps.parse-images.outputs.images-dockerfile }}
+      tests-dockerfile: ${{ steps.parse-tests.outputs.tests-dockerfile }}
+      tests-command: ${{ steps.parse-tests.outputs.tests-command }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -428,6 +406,29 @@ jobs:
             echo "tests-command=$test_command" >> "$GITHUB_OUTPUT"
           done
 
+  unit_test:
+    name: Run Unit Tests
+    needs: check-docker-config
+    if: needs.check-docker-config.outputs.has-docker-image == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build test image
+        if: hashFiles(${{ needs.check-docker-config.outputs.tests-dockerfile }}) != ''
+        run: |
+          docker build \
+            -f ${{ needs.check-docker-config.outputs.tests-dockerfile }} \
+            -t springboot-test:${{ github.sha }} \
+            .
+
+      - name: Run mvn clean verify
+        if: hashFiles(${{ needs.check-docker-config.outputs.tests-dockerfile }}) != '' and hashFiles(${{ needs.check-docker-config.outputs.tests-command }}) != ''
+        run: |
+          docker run --rm \
+            springboot-test:${{ github.sha }} \
+            bash ${{ needs.check-docker-config.outputs.tests-command }}
   # test-parse:
   #   name: Test parse step
   #   runs-on: ubuntu-latest
