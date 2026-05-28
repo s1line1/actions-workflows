@@ -105,9 +105,8 @@ jobs:
           echo "command=$(echo '${{ needs.check-docker-config.outputs.tests }}' | jq -r '.[0].command // empty')" >> "$GITHUB_OUTPUT"
 
 
-  test-config:
-    name: Test config content
-    needs: [parse-docker-config-images, parse-docker-config-tests]
+  print-config:
+    name: actions-workflows config print
     runs-on: ubuntu-latest
     if: needs.check-docker-config.outputs.has-docker-image == 'true'
     steps:
