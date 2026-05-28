@@ -1,7 +1,7 @@
 tests:
   - name: Run github-actions-demo Unit Test
-    dockerfile_tests: Dockerfile.test
-    # test_command: "cicd/run-test.sh"
+    # dockerfile: Dockerfile.test
+    # command: "cicd/run-test.sh"
 
 images:
   - name: github-actions-demo
