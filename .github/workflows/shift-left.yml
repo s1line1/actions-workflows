@@ -357,8 +357,8 @@ jobs:
     name: Check docker config
     uses: ./.github/workflows/_check-docker-config.yml
 
-  test_config:
-    name: Test config parsing
+  print_config:
+    name: shift-left config debug
     needs: check-docker-config
     runs-on: ubuntu-latest
     steps:
