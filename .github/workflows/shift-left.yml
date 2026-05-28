@@ -401,9 +401,7 @@ jobs:
         run: |
           # Check for images module
           if yq -e '.images | length > 0' docker-image.yml; then
-            echo "images<<EOF" >> "$GITHUB_OUTPUT"
-            yq -o=json '.images' docker-image.yml >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
+            echo "images=$(yq -o=json '.images' docker-image.yml | jq -c .)" >> "$GITHUB_OUTPUT"
           else
             echo "images=[]" >> "$GITHUB_OUTPUT"
           fi
@@ -414,9 +412,7 @@ jobs:
         run: |
           # Check for tests module
           if yq -e '.tests | length > 0' docker-image.yml > /dev/null 2>&1; then
-            echo "tests<<EOF" >> "$GITHUB_OUTPUT"
-            yq -o=json '.tests' docker-image.yml >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
+            echo "tests=$(yq -o=json '.tests' docker-image.yml | jq -c .)" >> "$GITHUB_OUTPUT"
           else
             echo "tests=[]" >> "$GITHUB_OUTPUT"
           fi
@@ -457,39 +453,37 @@ jobs:
           echo "dockerfile=$(echo '${{ needs.check-docker-config.outputs.tests }}' | jq -r '.[0].dockerfile // empty')" >> "$GITHUB_OUTPUT"
           echo "command=$(echo '${{ needs.check-docker-config.outputs.tests }}' | jq -r '.[0].command // empty')" >> "$GITHUB_OUTPUT"
 
-  # load_secrets:
-  #   name: Load secrets from OSS
-  #   needs: check-docker-config
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
+  load_secrets:
+    name: Load secrets from OSS
+    needs: [check-docker-config,parse-docker-config-images]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - uses: actions/setup-python@v5
-  #       with:
-  #         python-version: '3.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-  #     - name: Output secrets for debugging
-  #       id: get-secrets
-  #       run: |
-  #         pip install oss2
-  #         python get_oss_secrets.py \
-  #           --ak "${{ secrets.access_key_id }}" \
-  #           --sk "${{ secrets.access_key_secret }}" \
-  #           --endpoint "${{ inputs.OSS_ENDPOINT }}" \
-  #           --bucket "${{ inputs.OSS_BUCKET }}" \
-  #           --key secrets.json >> $GITHUB_ENV
+      - name: Output secrets for debugging
+        id: get-secrets
+        run: |
+          pip install oss2
+          python get_oss_secrets.py \
+            --ak "${{ secrets.access_key_id }}" \
+            --sk "${{ secrets.access_key_secret }}" \
+            --endpoint "${{ inputs.OSS_ENDPOINT }}" \
+            --bucket "${{ inputs.OSS_BUCKET }}" \
+            --key secrets.json >> $GITHUB_ENV
 
-  #     - name: Login to ACR
-  #       if: env.DOCKER_ALICLOUD_USERNAME != '' && env.DOCKER_ALICLOUD_PASSWORD != ''
-  #       run: |
-  #         REGISTRY=$(echo '${{ needs.check-docker-config.outputs.images }}' | jq -r '.[0].registry // empty')
-  #         NAMESPACE=$(echo '${{ needs.check-docker-config.outputs.images }}' | jq -r '.[0].namespace // empty')
-  #         if [ -z "$REGISTRY" ]; then
-  #           echo "Registry not found in docker-image.yml, skipping"
-  #           exit 0
-  #         fi
-  #         echo "$DOCKER_ALICLOUD_PASSWORD" | docker login -u "$DOCKER_ALICLOUD_USERNAME" \
-  #                 --password-stdin "$REGISTRY"
+      - name: Login to ACR
+        if: env.DOCKER_ALICLOUD_USERNAME != '' && env.DOCKER_ALICLOUD_PASSWORD != ''
+        run: |
+          if [ -z "${{ needs.parse-docker-config-images.outputs.registry }}" ]; then
+            echo "Registry not found in docker-image.yml, skipping"
+            exit 0
+          fi
+          echo "$DOCKER_ALICLOUD_PASSWORD" | docker login -u "$DOCKER_ALICLOUD_USERNAME" \
+                  --password-stdin "${{ needs.parse-docker-config-images.outputs.registry }}"
 
   unit_test:
     name: Run ${{ needs.parse-docker-config-tests.outputs.name }} Unit Tests
