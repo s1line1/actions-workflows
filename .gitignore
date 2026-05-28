@@ -3,3 +3,5 @@
 __pycache__/
 *.pyc
 .claude/
+.github/workflows/test-actions-workflows.yml
+docker-image.yml
