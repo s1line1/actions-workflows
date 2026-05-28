@@ -321,6 +321,9 @@ on:
       run-number:
         type: number
         default: 0
+      tag-sha:
+        type: string
+        default: ''
 
     outputs:
       has-docker-image:
