@@ -103,3 +103,15 @@ jobs:
           echo "name=$(echo '${{ needs.check-docker-config.outputs.tests }}' | jq -r '.[0].name // empty')" >> "$GITHUB_OUTPUT"
           echo "dockerfile=$(echo '${{ needs.check-docker-config.outputs.tests }}' | jq -r '.[0].dockerfile // empty')" >> "$GITHUB_OUTPUT"
           echo "command=$(echo '${{ needs.check-docker-config.outputs.tests }}' | jq -r '.[0].command // empty')" >> "$GITHUB_OUTPUT"
+
+
+  test-config:
+    name: Test config content
+    needs: [parse-docker-config-images, parse-docker-config-tests]
+    runs-on: ubuntu-latest
+    if: needs.check-docker-config.outputs.has-docker-image == 'true'
+    steps:
+      - name: Output final parsed config for debugging
+        run: |
+          echo "Parsed images: ${{ needs.check-docker-config.outputs.images }}"
+          echo "Parsed tests: ${{ needs.check-docker-config.outputs.tests }}"
