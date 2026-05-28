@@ -1,9 +1,10 @@
 tests:
-  - name: Run github-actions-demo Unit Test
-    # dockerfile: Dockerfile.test
-    # command: "cicd/run-test.sh"
+  - name: github-actions-demo
+    dockerfile: Dockerfile.test
+    command: "cicd/run-test.sh"
 
 images:
   - name: github-actions-demo
     dockerfile: Dockerfile
-    
+    registry: crpi-notabmu0yl0rr8sv.cn-shanghai.personal.cr.aliyuncs.com
+    namespace: s1line1-test
