@@ -18,6 +18,7 @@ jobs:
     with:
       acr-name: "test-acr-name"
       run-number: ${{ github.event.number }}
+      tag-sha: ${{ github.sha }}
 
   test-docker-images:
     needs: CICD
