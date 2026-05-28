@@ -365,6 +365,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/checkout@v4
+        with:
+          repository: s1line1/actions-workflows
+          path: actions-workflows
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
@@ -377,7 +382,7 @@ jobs:
             exit 0
           fi
           pip install oss2
-          python scripts/get_oss_secrets.py \
+          python ./scripts/get_oss_secrets.py \
             --ak "${{ secrets.access_key_id }}" \
             --sk "${{ secrets.access_key_secret }}" \
             --endpoint "${{ inputs.OSS_ENDPOINT }}" \

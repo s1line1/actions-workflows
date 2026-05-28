@@ -26,6 +26,14 @@ jobs:
       tests: ${{ steps.parse-tests.outputs.tests }}
       images: ${{ steps.parse-images.outputs.images }}
     steps:
+      - name: Setup Python and tools
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: |
+          python -m pip install --upgrade pip
+          pip install yq jq
+
       - name: Checkout
         uses: actions/checkout@v4
 
