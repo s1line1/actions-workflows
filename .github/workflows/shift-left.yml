@@ -492,7 +492,7 @@ jobs:
   #                 --password-stdin "$REGISTRY"
 
   unit_test:
-    name: Run Unit Tests
+    name: Run ${{ needs.parse-docker-config-tests.outputs.name }} Unit Tests
     needs: [check-docker-config,parse-docker-config-tests]
     if: needs.check-docker-config.outputs.has-docker-image == 'true' && needs.check-docker-config.outputs.tests != '[]'
     runs-on: ubuntu-latest
