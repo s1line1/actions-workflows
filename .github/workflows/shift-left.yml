@@ -324,12 +324,12 @@ on:
       tag-sha:
         type: string
         default: ''
-      access_key_id:
-        type: string
-        default: ''
-      access_key_secret:
-        type: string
-        default: ''
+      # access_key_id:
+      #   type: string
+      #   default: ''
+      # access_key_secret:
+      #   type: string
+      #   default: ''
       region:
         type: string
         default: ''
@@ -339,6 +339,12 @@ on:
       OSS_ENDPOINT:
         type: string
         default: ''
+
+    secrets:
+      access_key_id:
+        required: false
+      access_key_secret:
+        required: false
 
     outputs:
       has-docker-image:
@@ -414,18 +420,6 @@ jobs:
           else
             echo "tests=[]" >> "$GITHUB_OUTPUT"
           fi
-  
-  # print-docker-config:
-  #   name: Print parsed docker config
-  #   needs: check-docker-config
-  #   runs-on: ubuntu-latest
-  #   if: needs.check-docker-config.outputs.has-docker-image == 'true'
-  #   steps:
-  #     - name: Output parsed docker config
-  #       run: |
-  #         echo "Has Docker Image: ${{ needs.check-docker-config.outputs.has-docker-image }}"
-  #         echo "Parsed Tests: ${{ needs.check-docker-config.outputs.tests }}"
-  #         echo "Parsed Images: ${{ needs.check-docker-config.outputs.images }}"
 
   parse-docker-config-images:
     name: Parse images content
@@ -479,8 +473,8 @@ jobs:
   #       run: |
   #         pip install oss2
   #         python get_oss_secrets.py \
-  #           --ak "${{ inputs.access_key_id }}" \
-  #           --sk "${{ inputs.access_key_secret }}" \
+  #           --ak "${{ secrets.access_key_id }}" \
+  #           --sk "${{ secrets.access_key_secret }}" \
   #           --endpoint "${{ inputs.OSS_ENDPOINT }}" \
   #           --bucket "${{ inputs.OSS_BUCKET }}" \
   #           --key secrets.json >> $GITHUB_ENV
