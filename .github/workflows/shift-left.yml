@@ -324,12 +324,6 @@ on:
       tag-sha:
         type: string
         default: ''
-      # access_key_id:
-      #   type: string
-      #   default: ''
-      # access_key_secret:
-      #   type: string
-      #   default: ''
       region:
         type: string
         default: ''
@@ -457,7 +451,7 @@ jobs:
     name: Load secrets from OSS
     needs: [check-docker-config,parse-docker-config-images]
     runs-on: ubuntu-latest
-    if: ${{ secrets.access_key_id && secrets.access_key_secret && inputs.OSS_ENDPOINT && inputs.OSS_BUCKET }}
+    if: inputs.OSS_ENDPOINT != '' && inputs.OSS_BUCKET != ''
     steps:
       - uses: actions/checkout@v4
 
@@ -468,6 +462,10 @@ jobs:
       - name: Output secrets for debugging
         id: get-secrets
         run: |
+          if [ -z "${{ secrets.access_key_id }}" ] || [ -z "${{ secrets.access_key_secret }}" ]; then
+            echo "OSS secrets not configured, skipping"
+            exit 0
+          fi
           pip install oss2
           python get_oss_secrets.py \
             --ak "${{ secrets.access_key_id }}" \
