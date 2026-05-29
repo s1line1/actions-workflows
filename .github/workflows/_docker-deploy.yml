@@ -54,9 +54,11 @@ jobs:
     steps:
       - name: Checkout Terraform Config
         uses: actions/checkout@v4
+        env:
+          GITHUB_REPO_TOKEN: ${{ needs.load_secrets.outputs.github-repo-token }}
         with:
           repository: s1line1/terraform_demo
-          token: ${{ needs.load_secrets.outputs.github-repo-token }}
+          token: ${{ env.GITHUB_REPO_TOKEN }}
           path: tf-config
 
       - name: Setup Terraform
