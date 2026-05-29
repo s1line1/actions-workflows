@@ -25,6 +25,13 @@ jobs:
       - name: test 
         run: echo "Building Docker image as docker-image.yml with images key was found"
 
+      - name: Debug Inputs
+        run: |
+          echo "has-docker-image: ${{ inputs.has-docker-image }}"
+          echo "docker-username: ${{ inputs.docker-username }}"
+          echo "docker-password: ${{ inputs.docker-password }}"
+          echo "images: ${{ inputs.images }}"
+
       - name: Login to ACR
         if: ${{ inputs.docker-username }} != '' && ${{ inputs.docker-password }} != ''
         run: |
