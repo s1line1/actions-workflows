@@ -324,9 +324,6 @@ on:
       tag-sha:
         type: string
         default: ''
-      region:
-        type: string
-        default: ''
       OSS_BUCKET:
         type: string
         default: ''
@@ -365,6 +362,7 @@ jobs:
     outputs:
       docker-username: ${{ steps.export-docker-creds.outputs.docker-username }}
       docker-password: ${{ steps.export-docker-creds.outputs.docker-password }}
+      region-id: ${{ steps.export-docker-creds.outputs.region-id }}
     steps:
       # checkout 当前业务 repo
       - uses: actions/checkout@v4
@@ -405,17 +403,22 @@ jobs:
         run: |
           echo "docker-username=${DOCKER_ALICLOUD_USERNAME}" >> "$GITHUB_OUTPUT"
           echo "docker-password=${DOCKER_ALICLOUD_PASSWORD}" >> "$GITHUB_OUTPUT"
+          echo "region-id=${DOCKER_ALICLOUD_REGION_ID}" >> "$GITHUB_OUTPUT"
 
   build-images:
     name: Build Docker Images
+    if: ${{ github.event_name == 'pull_request' }}
     needs: [check-docker-config, load_secrets]
     uses: ./.github/workflows/_build-image.yml
     with:
       has-docker-image: ${{ needs.check-docker-config.outputs.has-docker-image == 'true' }}
       images: ${{ needs.check-docker-config.outputs.images }}
+      region-id: ${{ needs.load_secrets.outputs.region-id }}
     secrets:
       docker-username: ${{ needs.load_secrets.outputs.docker-username }}
       docker-password: ${{ needs.load_secrets.outputs.docker-password }}
+      ACCESS_KEY_ID: ${{ secrets.access_key_id }}
+      ACCESS_KEY_SECRET: ${{ secrets.access_key_secret }}
 
   unit_test:
     name: Run ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].name }} Unit Tests

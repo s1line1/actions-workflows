@@ -9,6 +9,9 @@ on:
       images:
         required: true
         type: string
+      region-id:
+        required: true
+        type: string
 
     secrets:
       docker-password:
@@ -70,3 +73,19 @@ jobs:
         run: |
           docker build --tag "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}:${{ needs.calculate.outputs.image_tag }}" .
           docker push "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}:${{ needs.calculate.outputs.image_tag }}"
+
+  scan:
+    name: Scan image in ACR
+    needs: [calculate]
+    # if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      # 1.4 Scan image in ACR
+      - name: Scan image in ACR
+        uses: aliyun/acr-scan@v1
+        with:
+          region-id: "${{ inputs.region-id }}"
+          access-key-id: "${{ secrets.ACCESS_KEY_ID }}"
+          access-key-secret: "${{ secrets.ACCESS_KEY_SECRET }}"
+          repository: "${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}"
+          tag: ${{ needs.calculate.outputs.image_tag }}
