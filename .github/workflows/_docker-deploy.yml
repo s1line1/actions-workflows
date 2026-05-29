@@ -9,6 +9,9 @@ on:
       OSS_BUCKET:
         type: string
         required: true
+      images:
+        required: true
+        type: string
       DEPLOY_ENV:
         type: string
         default: 'dev'
