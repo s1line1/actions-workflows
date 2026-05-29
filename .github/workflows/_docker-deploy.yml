@@ -46,7 +46,7 @@ jobs:
           echo "Docker username from secrets: ${{ needs.deploy_load_secrets.outputs.docker-username }}"
           echo "Docker password from secrets: ${{ needs.deploy_load_secrets.outputs.docker-password }}"
           echo "Region ID from secrets: ${{ needs.deploy_load_secrets.outputs.region-id }}"
-          echo "GitHub repo token from secrets: ${{ needs.deploy_load_secrets.outputs.github-repo-token }}"
+          echo "GitHub repo token from secrets: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}"
           echo "Terraform user access key from secrets: ${{ needs.deploy_load_secrets.outputs.terraform-user-access-key }}"
           echo "Terraform user secret key from secrets: ${{ needs.deploy_load_secrets.outputs.terraform-user-secret-key }}"
 
@@ -70,10 +70,10 @@ jobs:
       - name: Checkout Terraform Config
         uses: actions/checkout@v4
         env:
-          GITHUB_REPO_TOKEN: ${{ needs.deploy_load_secrets.outputs.github-repo-token }}
+          REPO_PAT_TOKEN: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}
         with:
           repository: s1line1/terraform_demo
-          token: ${{ env.GITHUB_REPO_TOKEN }}
+          token: ${{ env.REPO_PAT_TOKEN }}
           path: tf-config
 
       - name: Setup Terraform
@@ -95,10 +95,12 @@ jobs:
 
       - name: Checkout deploy-ansible repo
         uses: actions/checkout@v4
+        env:
+          REPO_PAT_TOKEN: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}
         with:
           repository: s1line1/ansible-playbook
           path: ansible-playbook
-          token: ${{ needs.deploy_load_secrets.outputs.github-repo-token }}
+          token: ${{ env.REPO_PAT_TOKEN }}
 
       - name: Install Ansible
         run: |
