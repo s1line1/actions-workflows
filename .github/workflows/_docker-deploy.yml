@@ -23,7 +23,7 @@ on:
         required: true
     
 jobs:
-  load_secrets:
+  deploy_load_secrets:
     name: Load secrets from OSS
     uses: ./.github/workflows/_load-secrets.yml
     with:
@@ -34,7 +34,23 @@ jobs:
       ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
       ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}
 
-  load_private_key:
+  print-deploy-info:
+    name: Print deploy info
+    runs-on: ubuntu-latest
+    needs: deploy_load_secrets
+    steps:
+      - name: Print deploy info
+        run: |
+          echo "Deploying to environment: ${{ inputs.DEPLOY_ENV }}"
+          echo "Trigger event: ${{ inputs.trigger-event }}"
+          echo "Docker username from secrets: ${{ needs.deploy_load_secrets.outputs.docker-username }}"
+          echo "Docker password from secrets: ${{ needs.deploy_load_secrets.outputs.docker-password }}"
+          echo "Region ID from secrets: ${{ needs.deploy_load_secrets.outputs.region-id }}"
+          echo "GitHub repo token from secrets: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}"
+          echo "Terraform user access key from secrets: ${{ needs.deploy_load_secrets.outputs.terraform-user-access-key }}"
+          echo "Terraform user secret key from secrets: ${{ needs.deploy_load_secrets.outputs.terraform-user-secret-key }}"
+
+  deploy_load_private_key:
     name: Load private key from OSS
     uses: ./.github/workflows/_load-secrets.yml
     with:
@@ -44,21 +60,20 @@ jobs:
     secrets:
       ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
       ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}
-
   
 
   deploy:
     name: Deploy Docker Image
     runs-on: ubuntu-latest
-    needs: [load_private_key, load_secrets]
+    needs: [deploy_load_private_key, deploy_load_secrets]
     steps:
       - name: Checkout Terraform Config
         uses: actions/checkout@v4
         env:
-          GITHUB_REPO_TOKEN: ${{ needs.load_secrets.outputs.github-repo-token }}
+          REPO_PAT_TOKEN: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}
         with:
           repository: s1line1/terraform_demo
-          token: ${{ env.GITHUB_REPO_TOKEN }}
+          token: ${{ env.REPO_PAT_TOKEN }}
           path: tf-config
 
       - name: Setup Terraform
@@ -66,8 +81,8 @@ jobs:
 
       - name: Get ECS IP or Fallback
         env:
-          ALICLOUD_ACCESS_KEY: ${{ needs.load_secrets.outputs.terraform-user-access-key }}
-          ALICLOUD_SECRET_KEY: ${{ needs.load_secrets.outputs.terraform-user-secret-key }}
+          ALICLOUD_ACCESS_KEY: ${{ needs.deploy_load_secrets.outputs.terraform-user-access-key }}
+          ALICLOUD_SECRET_KEY: ${{ needs.deploy_load_secrets.outputs.terraform-user-secret-key }}
         run: |
           cd tf-config/projects/github-actions-demo
           terraform init
@@ -80,10 +95,12 @@ jobs:
 
       - name: Checkout deploy-ansible repo
         uses: actions/checkout@v4
+        env:
+          REPO_PAT_TOKEN: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}
         with:
           repository: s1line1/ansible-playbook
           path: ansible-playbook
-          token: ${{ needs.load_secrets.outputs.github-repo-token }}
+          token: ${{ env.REPO_PAT_TOKEN }}
 
       - name: Install Ansible
         run: |
@@ -99,4 +116,4 @@ jobs:
           echo "Using inventory: $INVENTORY"
           cd ansible-playbook && \
           ANSIBLE_HOST_KEY_CHECKING=false ansible-playbook -i $INVENTORY github-actions-demo/deploy.yml \
-          -e "env=${{ inputs.DEPLOY_ENV }} acr_password=${{ needs.load_secrets.outputs.docker-password }}" --private-key ~/.ssh/id_rsa -u root
+          -e "env=${{ inputs.DEPLOY_ENV }} acr_password=${{ needs.deploy_load_secrets.outputs.docker-password }}" --private-key ~/.ssh/id_rsa -u root
