@@ -6,15 +6,15 @@ on:
       has-docker-image:
         required: true
         type: boolean
-      docker-username:
-        required: true
-        type: string
-      docker-password:
-        required: true
-        type: string
       images:
         required: true
         type: string
+
+    secrets:
+      docker-password:
+        required: true
+      docker-username:
+        required: true
 
 jobs:
   build-docker-image:
@@ -28,16 +28,16 @@ jobs:
       - name: Debug Inputs
         run: |
           echo "has-docker-image: ${{ inputs.has-docker-image }}"
-          echo "docker-username: ${{ inputs.docker-username }}"
-          echo "docker-password: ${{ inputs.docker-password }}"
+          echo "docker-username: ${{ secrets.docker-username }}"
+          echo "docker-password: ${{ secrets.docker-password }}"
           echo "images: ${{ inputs.images }}"
 
       - name: Login to ACR
-        if: ${{ inputs.docker-username }} != '' && ${{ inputs.docker-password }} != ''
+        if: ${{ secrets.docker-username }} != '' && ${{ secrets.docker-password }} != ''
         run: |
           if [ -z "${{ fromJSON(inputs.images)[0].registry }}" ]; then
             echo "Registry not found in docker-image.yml, skipping"
             exit 0
           fi
-          echo "${{ inputs.docker-password }}" | docker login -u "${{ inputs.docker-username }}" \
+          echo "${{ secrets.docker-password }}" | docker login -u "${{ secrets.docker-username }}" \
                   --password-stdin "${{ fromJSON(inputs.images)[0].registry }}"
