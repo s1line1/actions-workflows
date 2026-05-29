@@ -58,7 +58,7 @@ jobs:
           GITHUB_REPO_TOKEN: ${{ needs.load_secrets.outputs.github-repo-token }}
         with:
           repository: s1line1/terraform_demo
-          token: ${{ GITHUB_REPO_TOKEN }}
+          token: ${{ env.GITHUB_REPO_TOKEN }}
           path: tf-config
 
       - name: Setup Terraform
