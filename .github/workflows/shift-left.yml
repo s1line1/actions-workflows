@@ -417,6 +417,7 @@ jobs:
       has-docker-image: ${{ needs.check-docker-config.outputs.has-docker-image == 'true' }}
       images: ${{ needs.check-docker-config.outputs.images }}
       region-id: ${{ needs.load_secrets.outputs.region-id }}
+      trigger-event: ${{ inputs.trigger-event }}
     secrets:
       docker-username: ${{ needs.load_secrets.outputs.docker-username }}
       docker-password: ${{ needs.load_secrets.outputs.docker-password }}
