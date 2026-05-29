@@ -6,9 +6,6 @@ on:
       images:
         required: true
         type: string
-      region-id:
-        required: true
-        type: string
       trigger-event:
         type: string
         default: ''
