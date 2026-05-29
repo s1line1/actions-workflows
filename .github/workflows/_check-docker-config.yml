@@ -51,7 +51,7 @@ jobs:
         if: steps.check-exists.outputs.has-docker-image == 'true'
         run: |
           # Check for images module
-          if yq -e '.images | length > 0' docker-image.yml; then
+          if yq -e '.images | length > 0' docker-image.yml > /dev/null 2>&1; then
             echo "images=$(yq -o=json '.images' docker-image.yml | jq -c .)" >> "$GITHUB_OUTPUT"
           else
             echo "images=[]" >> "$GITHUB_OUTPUT"

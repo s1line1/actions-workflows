@@ -406,6 +406,19 @@ jobs:
           echo "docker-username=${DOCKER_ALICLOUD_USERNAME}" >> "$GITHUB_OUTPUT"
           echo "docker-password=${DOCKER_ALICLOUD_PASSWORD}" >> "$GITHUB_OUTPUT"
 
+  # print-config:
+  #   name: Print Config
+  #   needs: [check-docker-config, load_secrets]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Debug Config
+  #       run: |
+  #         echo "has-docker-image: ${{ needs.check-docker-config.outputs.has-docker-image }}"
+  #         echo "docker-username: ${{ needs.load_secrets.outputs.docker-username }}"
+  #         echo "docker-password: ${{ needs.load_secrets.outputs.docker-password }}"
+  #         echo "images: ${{ needs.check-docker-config.outputs.images }}"
+  #         echo "tests: ${{ needs.check-docker-config.outputs.tests }}"
+
   build-images:
     name: Build Docker Images
     needs: [check-docker-config, load_secrets]
