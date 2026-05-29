@@ -26,11 +26,11 @@ jobs:
         run: echo "Building Docker image as docker-image.yml with images key was found"
 
       - name: Login to ACR
-        if: inputs.DOCKER_ALICLOUD_USERNAME != '' && inputs.DOCKER_ALICLOUD_PASSWORD != ''
+        if: ${{ inputs.docker-username }} != '' && ${{ inputs.docker-password }} != ''
         run: |
           if [ -z "${{ fromJSON(inputs.images)[0].registry }}" ]; then
             echo "Registry not found in docker-image.yml, skipping"
             exit 0
           fi
-          echo "$inputs.DOCKER_ALICLOUD_PASSWORD" | docker login -u "$inputs.DOCKER_ALICLOUD_USERNAME" \
+          echo "${{ inputs.docker-password }}" | docker login -u "${{ inputs.docker-username }}" \
                   --password-stdin "${{ fromJSON(inputs.images)[0].registry }}"
