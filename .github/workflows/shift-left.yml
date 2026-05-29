@@ -404,7 +404,6 @@ jobs:
     needs: [check-docker-config, unit_test]
     uses: ./.github/workflows/_docker-deploy.yml
     with:
-      images: ${{ needs.check-docker-config.outputs.images }}
       trigger-event: ${{ inputs.trigger-event }}
       OSS_ENDPOINT: ${{ inputs.OSS_ENDPOINT }}
       OSS_BUCKET: ${{ inputs.OSS_BUCKET }}
