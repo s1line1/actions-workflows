@@ -324,21 +324,24 @@ on:
       tag-sha:
         type: string
         default: ''
-      region:
-        type: string
-        default: ''
       OSS_BUCKET:
         type: string
         default: ''
       OSS_ENDPOINT:
         type: string
         default: ''
+      trigger-event:
+        type: string
+        default: ''
+      DEPLOY_ENV:
+        type: string
+        default: 'dev'
 
     secrets:
-      access_key_id:
-        required: false
-      access_key_secret:
-        required: false
+      ACCESS_KEY_ID:
+        required: true
+      ACCESS_KEY_SECRET:
+        required: true
 
     outputs:
       has-docker-image:
@@ -357,54 +360,10 @@ jobs:
     name: Check docker config
     uses: ./.github/workflows/_check-docker-config.yml
 
-  load_secrets:
-    name: Load secrets from OSS
-    needs: [check-docker-config]
-    runs-on: ubuntu-latest
-    if: inputs.OSS_ENDPOINT != '' && inputs.OSS_BUCKET != ''
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/checkout@v4
-        with:
-          repository: s1line1/actions-workflows
-          path: actions-workflows
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Output secrets for debugging
-        id: get-secrets
-        run: |
-          if [ -z "${{ secrets.access_key_id }}" ] || [ -z "${{ secrets.access_key_secret }}" ]; then
-            echo "OSS secrets not configured, skipping"
-            exit 0
-          fi
-          python -m pip install --upgrade pip
-          pip install yq jq
-          pip install oss2
-          python ./actions-workflows/scripts/get_oss_secrets.py \
-            --ak "${{ secrets.access_key_id }}" \
-            --sk "${{ secrets.access_key_secret }}" \
-            --endpoint "${{ inputs.OSS_ENDPOINT }}" \
-            --bucket "${{ inputs.OSS_BUCKET }}" \
-            --key secrets.json >> $GITHUB_ENV
-
-      - name: Login to ACR
-        if: env.DOCKER_ALICLOUD_USERNAME != '' && env.DOCKER_ALICLOUD_PASSWORD != ''
-        run: |
-          if [ -z "${{ fromJSON(needs.check-docker-config.outputs.images)[0].registry }}" ]; then
-            echo "Registry not found in docker-image.yml, skipping"
-            exit 0
-          fi
-          echo "$DOCKER_ALICLOUD_PASSWORD" | docker login -u "$DOCKER_ALICLOUD_USERNAME" \
-                  --password-stdin "${{ fromJSON(needs.check-docker-config.outputs.images)[0].registry }}"
-
   unit_test:
     name: Run ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].name }} Unit Tests
     needs: [check-docker-config]
-    if: needs.check-docker-config.outputs.has-docker-image == 'true' && needs.check-docker-config.outputs.tests != '[]'
+    if: needs.check-docker-config.outputs.has-docker-image == 'true' && needs.check-docker-config.outputs.tests != '' && needs.check-docker-config.outputs.tests != '[]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -425,27 +384,30 @@ jobs:
             springboot-test:${{ github.sha }} \
             bash ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].command }}
 
+  build-images:
+    name: Build Docker Images
+    if: inputs.trigger-event == 'pull_request' && needs.check-docker-config.outputs.has-docker-image == 'true'
+    needs: [check-docker-config, unit_test]
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      images: ${{ needs.check-docker-config.outputs.images }}
+      trigger-event: ${{ inputs.trigger-event }}
+      OSS_ENDPOINT: ${{ inputs.OSS_ENDPOINT }}
+      OSS_BUCKET: ${{ inputs.OSS_BUCKET }}
+    secrets:
+      ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
+      ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}
 
-  # ══════════════════════════════════════════════════════════
-  # Lint — Java (Maven)
-  # ══════════════════════════════════════════════════════════
-         
-  # unit_test:
-  #   name: Run Unit Tests
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-
-  #     - name: Build test image
-  #       run: |
-  #         docker build \
-  #           -f Dockerfile.test \
-  #           -t springboot-test:${{ github.sha }} \
-  #           .
-
-  #     - name: Run mvn clean verify
-  #       run: |
-  #         docker run --rm \
-  #           springboot-test:${{ github.sha }} \
-  #           bash cicd/run-test.sh
+  deploy-images:
+    name: Deploy Docker Images
+    if: inputs.trigger-event == 'push' && needs.check-docker-config.outputs.has-docker-image == 'true'
+    needs: [check-docker-config, unit_test]
+    uses: ./.github/workflows/_docker-deploy.yml
+    with:
+      trigger-event: ${{ inputs.trigger-event }}
+      OSS_ENDPOINT: ${{ inputs.OSS_ENDPOINT }}
+      OSS_BUCKET: ${{ inputs.OSS_BUCKET }}
+      DEPLOY_ENV: ${{ inputs.DEPLOY_ENV }}
+    secrets:
+      ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
+      ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}

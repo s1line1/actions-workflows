@@ -1,0 +1,104 @@
+name: Build Image
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        required: true
+        type: string
+      trigger-event:
+        type: string
+        default: ''
+      OSS_ENDPOINT:
+        type: string
+        required: true
+      OSS_BUCKET:
+        type: string
+        required: true
+
+    secrets:
+      ACCESS_KEY_ID:
+        required: true
+      ACCESS_KEY_SECRET:
+        required: true
+
+jobs:
+  load_secrets:
+    name: Load secrets from OSS
+    uses: ./.github/workflows/_load-secrets.yml
+    with:
+      OSS_ENDPOINT: ${{ inputs.OSS_ENDPOINT }}
+      OSS_BUCKET: ${{ inputs.OSS_BUCKET }}
+      SECRETS: true
+    secrets:
+      ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
+      ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}
+
+  calculate:
+    name: Calculate Tag
+    if: inputs.images != '[]'
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.calculate-tag.outputs.tag }}
+    steps:
+      - name: Calculate tag
+        id: calculate-tag
+        run: |
+          TAG=$(echo -n '${{ github.sha }}' | sha256sum | cut -d' ' -f1 | head -c 8)
+          echo "TAG=${{ github.event.number }}_$TAG" >> "$GITHUB_OUTPUT"
+          echo "${{ github.event.number }}_$TAG" > image_tag.txt
+      
+      - name: echo tag
+        run: |
+          echo "build image with tag: ${{ steps.calculate-tag.outputs.tag }}"
+
+      - name: Upload tag
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-tag
+          path: image_tag.txt
+
+  build-docker-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    if: inputs.images != '[]'
+    needs: [load_secrets, calculate]
+    env:
+      DOCKER_USERNAME: ${{ needs.load_secrets.outputs.docker-username }}
+      DOCKER_PASSWORD: ${{ needs.load_secrets.outputs.docker-password }}
+    steps:
+      - name: test
+        run: echo "Building Docker image as docker-image.yml with images key was found"
+
+      - name: Login to ACR
+        id: docker-login
+        if: env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
+        run: |
+          if [ -z "${{ fromJSON(inputs.images)[0].registry }}" ]; then
+            echo "Registry not found in docker-image.yml, skipping"
+            exit 0
+          fi
+          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" \
+                  --password-stdin "${{ fromJSON(inputs.images)[0].registry }}"
+
+      - uses: actions/checkout@v4
+
+      - name: Build and push image to ACR
+        run: |
+          docker build --tag "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}:${{ needs.calculate.outputs.image_tag }}" .
+          docker push "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}:${{ needs.calculate.outputs.image_tag }}"
+
+  scan:
+    name: Scan image in ACR
+    if: inputs.images != '[]'
+    needs: [load_secrets, calculate, build-docker-image]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan image in ACR
+        uses: aliyun/acr-scan@v1
+        with:
+          region-id: "${{ needs.load_secrets.outputs.region-id }}"
+          access-key-id: "${{ secrets.ACCESS_KEY_ID }}"
+          access-key-secret: "${{ secrets.ACCESS_KEY_SECRET }}"
+          repository: "${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}"
+          tag: ${{ needs.calculate.outputs.image_tag }}
