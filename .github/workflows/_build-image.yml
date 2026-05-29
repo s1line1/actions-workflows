@@ -21,23 +21,26 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     if: inputs.has-docker-image
+    env:
+      DOCKER_USERNAME: ${{ secrets.docker-username }}
+      DOCKER_PASSWORD: ${{ secrets.docker-password }}
     steps:
-      - name: test 
+      - name: test
         run: echo "Building Docker image as docker-image.yml with images key was found"
 
       - name: Debug Inputs
         run: |
           echo "has-docker-image: ${{ inputs.has-docker-image }}"
-          echo "docker-username: ${{ secrets.docker-username }}"
-          echo "docker-password: ${{ secrets.docker-password }}"
+          echo "docker-username: $DOCKER_USERNAME"
+          echo "docker-password: $DOCKER_PASSWORD"
           echo "images: ${{ inputs.images }}"
 
       - name: Login to ACR
-        if: ${{ secrets.docker-username }} != '' && ${{ secrets.docker-password }} != ''
+        if: env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
         run: |
           if [ -z "${{ fromJSON(inputs.images)[0].registry }}" ]; then
             echo "Registry not found in docker-image.yml, skipping"
             exit 0
           fi
-          echo "${{ secrets.docker-password }}" | docker login -u "${{ secrets.docker-username }}" \
+          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" \
                   --password-stdin "${{ fromJSON(inputs.images)[0].registry }}"
