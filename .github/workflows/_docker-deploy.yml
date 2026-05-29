@@ -21,6 +21,8 @@ on:
         required: true
       ACCESS_KEY_SECRET:
         required: true
+      DEPLOY_REPO_TOKEN:
+        required: true
     
 jobs:
   deploy_load_secrets:
@@ -33,22 +35,6 @@ jobs:
     secrets:
       ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
       ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}
-
-  print-deploy-info:
-    name: Print deploy info
-    runs-on: ubuntu-latest
-    needs: deploy_load_secrets
-    steps:
-      - name: Print deploy info
-        run: |
-          echo "Deploying to environment: ${{ inputs.DEPLOY_ENV }}"
-          echo "Trigger event: ${{ inputs.trigger-event }}"
-          echo "Docker username from secrets: ${{ needs.deploy_load_secrets.outputs.docker-username }}"
-          echo "Docker password from secrets: ${{ needs.deploy_load_secrets.outputs.docker-password }}"
-          echo "Region ID from secrets: ${{ needs.deploy_load_secrets.outputs.region-id }}"
-          echo "GitHub repo token from secrets: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}"
-          echo "Terraform user access key from secrets: ${{ needs.deploy_load_secrets.outputs.terraform-user-access-key }}"
-          echo "Terraform user secret key from secrets: ${{ needs.deploy_load_secrets.outputs.terraform-user-secret-key }}"
 
   deploy_load_private_key:
     name: Load private key from OSS
@@ -69,11 +55,9 @@ jobs:
     steps:
       - name: Checkout Terraform Config
         uses: actions/checkout@v4
-        env:
-          REPO_PAT_TOKEN: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}
         with:
           repository: s1line1/terraform_demo
-          token: ${{ env.REPO_PAT_TOKEN }}
+          token: ${{ secrets.DEPLOY_REPO_TOKEN }}
           path: tf-config
 
       - name: Setup Terraform
@@ -93,14 +77,12 @@ jobs:
             echo "Using terraform IPs: $(cat /tmp/inventory.ini)"
           fi
 
-      - name: Checkout deploy-ansible repo
+      - name: Checkout ansible repo
         uses: actions/checkout@v4
-        env:
-          REPO_PAT_TOKEN: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}
         with:
           repository: s1line1/ansible-playbook
           path: ansible-playbook
-          token: ${{ env.REPO_PAT_TOKEN }}
+          token: ${{ secrets.DEPLOY_REPO_TOKEN }}
 
       - name: Install Ansible
         run: |

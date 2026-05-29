@@ -133,6 +133,8 @@ on:
         required: true
       ACCESS_KEY_SECRET:
         required: true
+      DEPLOY_REPO_TOKEN:
+        required: true
 
     outputs:
       has-docker-image:
@@ -202,3 +204,4 @@ jobs:
     secrets:
       ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
       ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}
+      DEPLOY_REPO_TOKEN: ${{ secrets.DEPLOY_REPO_TOKEN }}
