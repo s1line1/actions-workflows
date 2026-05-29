@@ -330,6 +330,9 @@ on:
       OSS_ENDPOINT:
         type: string
         default: ''
+      trigger-event:
+        type: string
+        default: ''
 
     secrets:
       access_key_id:
@@ -407,7 +410,7 @@ jobs:
 
   build-images:
     name: Build Docker Images
-    if: ${{ github.event_name == 'pull_request' }}
+    if: inputs.trigger-event == 'pull_request'
     needs: [check-docker-config, load_secrets]
     uses: ./.github/workflows/_build-image.yml
     with:
