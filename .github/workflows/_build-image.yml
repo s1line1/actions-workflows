@@ -80,7 +80,7 @@ jobs:
 
   scan:
     name: Scan image in ACR
-    needs: [calculate]
+    needs: [calculate, build-docker-image]
     # if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
