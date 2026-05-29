@@ -336,9 +336,9 @@ on:
 
     secrets:
       access_key_id:
-        required: false
+        required: true
       access_key_secret:
-        required: false
+        required: true
 
     outputs:
       has-docker-image:
@@ -357,21 +357,14 @@ jobs:
     name: Check docker config
     uses: ./.github/workflows/_check-docker-config.yml
 
-  print_config:
-    name: shift-left config debug
-    needs: check-docker-config
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo "has-docker-image: ${{ needs.check-docker-config.outputs.has-docker-image }}"
-          echo "images: ${{ needs.check-docker-config.outputs.images }}"
-          echo "tests: ${{ needs.check-docker-config.outputs.tests }}"
-
   load_secrets:
     name: Load secrets from OSS
     needs: [check-docker-config]
     runs-on: ubuntu-latest
     if: inputs.OSS_ENDPOINT != '' && inputs.OSS_BUCKET != ''
+    outputs:
+      docker-username: ${{ steps.export-docker-creds.outputs.docker-username }}
+      docker-password: ${{ steps.export-docker-creds.outputs.docker-password }}
     steps:
       # checkout 当前业务 repo
       - uses: actions/checkout@v4
@@ -407,20 +400,26 @@ jobs:
             --bucket "${{ inputs.OSS_BUCKET }}" \
             --key secrets.json >> $GITHUB_ENV
 
-      - name: Login to ACR
-        if: env.DOCKER_ALICLOUD_USERNAME != '' && env.DOCKER_ALICLOUD_PASSWORD != ''
+      - name: Export docker creds for downstream jobs
+        id: export-docker-creds
         run: |
-          if [ -z "${{ fromJSON(needs.check-docker-config.outputs.images)[0].registry }}" ]; then
-            echo "Registry not found in docker-image.yml, skipping"
-            exit 0
-          fi
-          echo "$DOCKER_ALICLOUD_PASSWORD" | docker login -u "$DOCKER_ALICLOUD_USERNAME" \
-                  --password-stdin "${{ fromJSON(needs.check-docker-config.outputs.images)[0].registry }}"
+          echo "docker-username=${DOCKER_ALICLOUD_USERNAME}" >> "$GITHUB_OUTPUT"
+          echo "docker-password=${DOCKER_ALICLOUD_PASSWORD}" >> "$GITHUB_OUTPUT"
+
+  build-images:
+    name: Build Docker Images
+    needs: [check-docker-config, load_secrets]
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      has-docker-image: ${{ needs.check-docker-config.outputs.has-docker-image }}
+      docker-username: ${{ needs.load_secrets.outputs.docker-username }}
+      docker-password: ${{ needs.load_secrets.outputs.docker-password }}
+      images: ${{ needs.check-docker-config.outputs.images }}
 
   unit_test:
     name: Run ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].name }} Unit Tests
     needs: [check-docker-config]
-    if: needs.check-docker-config.outputs.has-docker-image == 'true' && needs.check-docker-config.outputs.tests != '[]'
+    if: needs.check-docker-config.outputs.has-docker-image == 'true' && needs.check-docker-config.outputs.tests != '' && needs.check-docker-config.outputs.tests != '[]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -440,28 +439,3 @@ jobs:
           docker run --rm \
             springboot-test:${{ github.sha }} \
             bash ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].command }}
-
-
-  # ══════════════════════════════════════════════════════════
-  # Lint — Java (Maven)
-  # ══════════════════════════════════════════════════════════
-         
-  # unit_test:
-  #   name: Run Unit Tests
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-
-  #     - name: Build test image
-  #       run: |
-  #         docker build \
-  #           -f Dockerfile.test \
-  #           -t springboot-test:${{ github.sha }} \
-  #           .
-
-  #     - name: Run mvn clean verify
-  #       run: |
-  #         docker run --rm \
-  #           springboot-test:${{ github.sha }} \
-  #           bash cicd/run-test.sh
