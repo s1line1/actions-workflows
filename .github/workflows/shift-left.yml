@@ -411,7 +411,7 @@ jobs:
     needs: [check-docker-config, load_secrets]
     uses: ./.github/workflows/_build-image.yml
     with:
-      has-docker-image: '${{ needs.check-docker-config.outputs.has-docker-image }}'
+      has-docker-image: ${{ needs.check-docker-config.outputs.has-docker-image == 'true' }}
       docker-username: ${{ needs.load_secrets.outputs.docker-username }}
       docker-password: ${{ needs.load_secrets.outputs.docker-password }}
       images: ${{ needs.check-docker-config.outputs.images }}

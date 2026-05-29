@@ -5,7 +5,7 @@ on:
     inputs:
       has-docker-image:
         required: true
-        type: string
+        type: boolean
       docker-username:
         required: true
         type: string
@@ -20,7 +20,7 @@ jobs:
   build-docker-image:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    if: ${{ inputs.has-docker-image == 'true' }}
+    if: inputs.has-docker-image
     steps:
       - name: test 
         run: echo "Building Docker image as docker-image.yml with images key was found"
