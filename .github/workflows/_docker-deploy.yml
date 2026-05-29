@@ -21,6 +21,8 @@ on:
         required: true
       ACCESS_KEY_SECRET:
         required: true
+      DEPLOY_REPO_TOKEN:
+        required: true
     
 jobs:
   deploy_load_secrets:
@@ -55,7 +57,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: s1line1/terraform_demo
-          token: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}
+          token: ${{ secrets.DEPLOY_REPO_TOKEN }}
           path: tf-config
 
       - name: Setup Terraform
@@ -80,7 +82,7 @@ jobs:
         with:
           repository: s1line1/ansible-playbook
           path: ansible-playbook
-          token: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}
+          token: ${{ secrets.DEPLOY_REPO_TOKEN }}
 
       - name: Install Ansible
         run: |
