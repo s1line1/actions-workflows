@@ -17,10 +17,35 @@ on:
         required: true
 
 jobs:
+  calculate:
+    name: Calculate Tag
+    if: inputs.has-docker-image
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.calculate-tag.outputs.tag }}
+    steps:
+      - name: Calculate tag
+        id: calculate-tag
+        run: |
+          TAG=$(echo -n '${{ github.sha }}' | sha256sum | cut -d' ' -f1 | head -c 8)
+          echo "TAG=${{ github.event.number }}_$TAG" >> "$GITHUB_OUTPUT"
+          echo "${{ github.event.number }}_$TAG" > image_tag.txt
+      
+      - name: echo tag
+        run: |
+          echo "build image with tag: ${{ steps.calculate-tag.outputs.tag }}"
+
+      - name: Upload tag
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-tag
+          path: image_tag.txt
+
   build-docker-image:
     name: Build Docker Image
     runs-on: ubuntu-latest
     if: inputs.has-docker-image
+    needs: calculate
     env:
       DOCKER_USERNAME: ${{ secrets.docker-username }}
       DOCKER_PASSWORD: ${{ secrets.docker-password }}
@@ -28,14 +53,8 @@ jobs:
       - name: test
         run: echo "Building Docker image as docker-image.yml with images key was found"
 
-      - name: Debug Inputs
-        run: |
-          echo "has-docker-image: ${{ inputs.has-docker-image }}"
-          echo "docker-username: $DOCKER_USERNAME"
-          echo "docker-password: $DOCKER_PASSWORD"
-          echo "images: ${{ inputs.images }}"
-
       - name: Login to ACR
+        id: docker-login
         if: env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
         run: |
           if [ -z "${{ fromJSON(inputs.images)[0].registry }}" ]; then
@@ -44,3 +63,10 @@ jobs:
           fi
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" \
                   --password-stdin "${{ fromJSON(inputs.images)[0].registry }}"
+
+      - uses: actions/checkout@v4
+
+      - name: Build and push image to ACR
+        run: |
+          docker build --tag "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/$IMAGE:${{ needs.calculate.outputs.image_tag }}" .
+          docker push "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/$IMAGE:${{ needs.calculate.outputs.image_tag }}"
