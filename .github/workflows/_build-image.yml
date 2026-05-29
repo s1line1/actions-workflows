@@ -68,5 +68,5 @@ jobs:
 
       - name: Build and push image to ACR
         run: |
-          docker build --tag "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/$IMAGE:${{ needs.calculate.outputs.image_tag }}" .
-          docker push "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/$IMAGE:${{ needs.calculate.outputs.image_tag }}"
+          docker build --tag "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}:${{ needs.calculate.outputs.image_tag }}" .
+          docker push "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}:${{ needs.calculate.outputs.image_tag }}"
