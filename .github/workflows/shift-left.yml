@@ -425,9 +425,10 @@ jobs:
     uses: ./.github/workflows/_build-image.yml
     with:
       has-docker-image: ${{ needs.check-docker-config.outputs.has-docker-image == 'true' }}
+      images: ${{ needs.check-docker-config.outputs.images }}
+    secrets:
       docker-username: ${{ needs.load_secrets.outputs.docker-username }}
       docker-password: ${{ needs.load_secrets.outputs.docker-password }}
-      images: ${{ needs.check-docker-config.outputs.images }}
 
   unit_test:
     name: Run ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].name }} Unit Tests
