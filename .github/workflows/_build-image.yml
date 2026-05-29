@@ -86,7 +86,6 @@ jobs:
     needs: [calculate, build-docker-image]
     runs-on: ubuntu-latest
     steps:
-      # 1.4 Scan image in ACR
       - name: Scan image in ACR
         uses: aliyun/acr-scan@v1
         with:
