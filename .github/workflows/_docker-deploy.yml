@@ -34,22 +34,6 @@ jobs:
       ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
       ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}
 
-  print-deploy-info:
-    name: Print deploy info
-    runs-on: ubuntu-latest
-    needs: deploy_load_secrets
-    steps:
-      - name: Print deploy info
-        run: |
-          echo "Deploying to environment: ${{ inputs.DEPLOY_ENV }}"
-          echo "Trigger event: ${{ inputs.trigger-event }}"
-          echo "Docker username from secrets: ${{ needs.deploy_load_secrets.outputs.docker-username }}"
-          echo "Docker password from secrets: ${{ needs.deploy_load_secrets.outputs.docker-password }}"
-          echo "Region ID from secrets: ${{ needs.deploy_load_secrets.outputs.region-id }}"
-          echo "GitHub repo token from secrets: ${{ needs.deploy_load_secrets.outputs.repo-pat-token }}"
-          echo "Terraform user access key from secrets: ${{ needs.deploy_load_secrets.outputs.terraform-user-access-key }}"
-          echo "Terraform user secret key from secrets: ${{ needs.deploy_load_secrets.outputs.terraform-user-secret-key }}"
-
   deploy_load_private_key:
     name: Load private key from OSS
     uses: ./.github/workflows/_load-secrets.yml
