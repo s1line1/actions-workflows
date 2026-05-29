@@ -3,9 +3,6 @@ name: Build Image
 on:
   workflow_call:
     inputs:
-      has-docker-image:
-        required: true
-        type: boolean
       images:
         required: true
         type: string
@@ -15,21 +12,34 @@ on:
       trigger-event:
         type: string
         default: ''
+      OSS_ENDPOINT:
+        type: string
+        required: true
+      OSS_BUCKET:
+        type: string
+        required: true
 
     secrets:
-      docker-password:
-        required: true
-      docker-username:
-        required: true
       ACCESS_KEY_ID:
         required: true
       ACCESS_KEY_SECRET:
         required: true
 
 jobs:
+  load_secrets:
+    name: Load secrets from OSS
+    uses: ./.github/workflows/_load-secrets.yml
+    with:
+      OSS_ENDPOINT: ${{ inputs.OSS_ENDPOINT }}
+      OSS_BUCKET: ${{ inputs.OSS_BUCKET }}
+      SECRETS: true
+    secrets:
+      ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
+      ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}
+
   calculate:
     name: Calculate Tag
-    if: inputs.has-docker-image
+    if: inputs.images != '[]'
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.calculate-tag.outputs.tag }}
@@ -54,11 +64,11 @@ jobs:
   build-docker-image:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    if: inputs.has-docker-image
-    needs: calculate
+    if: inputs.images != '[]'
+    needs: [load_secrets, calculate]
     env:
-      DOCKER_USERNAME: ${{ secrets.docker-username }}
-      DOCKER_PASSWORD: ${{ secrets.docker-password }}
+      DOCKER_USERNAME: ${{ needs.load_secrets.outputs.docker-username }}
+      DOCKER_PASSWORD: ${{ needs.load_secrets.outputs.docker-password }}
     steps:
       - name: test
         run: echo "Building Docker image as docker-image.yml with images key was found"
@@ -83,13 +93,14 @@ jobs:
 
   scan:
     name: Scan image in ACR
-    needs: [calculate, build-docker-image]
+    if: inputs.images != '[]'
+    needs: [load_secrets, calculate, build-docker-image]
     runs-on: ubuntu-latest
     steps:
       - name: Scan image in ACR
         uses: aliyun/acr-scan@v1
         with:
-          region-id: "${{ inputs.region-id }}"
+          region-id: "${{ needs.load_secrets.outputs.region-id }}"
           access-key-id: "${{ secrets.ACCESS_KEY_ID }}"
           access-key-secret: "${{ secrets.ACCESS_KEY_SECRET }}"
           repository: "${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}"

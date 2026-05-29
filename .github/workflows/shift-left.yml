@@ -333,11 +333,14 @@ on:
       trigger-event:
         type: string
         default: ''
+      DEPLOY_ENV:
+        type: string
+        default: 'dev'
 
     secrets:
-      access_key_id:
+      ACCESS_KEY_ID:
         required: true
-      access_key_secret:
+      ACCESS_KEY_SECRET:
         required: true
 
     outputs:
@@ -356,73 +359,6 @@ jobs:
   check-docker-config:
     name: Check docker config
     uses: ./.github/workflows/_check-docker-config.yml
-
-  load_secrets:
-    name: Load secrets from OSS
-    needs: [check-docker-config]
-    runs-on: ubuntu-latest
-    if: inputs.OSS_ENDPOINT != '' && inputs.OSS_BUCKET != ''
-    outputs:
-      docker-username: ${{ steps.export-docker-creds.outputs.docker-username }}
-      docker-password: ${{ steps.export-docker-creds.outputs.docker-password }}
-      region-id: ${{ steps.export-docker-creds.outputs.region-id }}
-    steps:
-      # checkout 当前业务 repo
-      - uses: actions/checkout@v4
-
-      # checkout reusable workflow repo
-      - name: Checkout actions-workflows
-        uses: actions/checkout@v4
-        with:
-          repository: s1line1/actions-workflows
-          path: actions-workflows
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install oss2 yq
-
-      - name: Output secrets for debugging
-        id: get-secrets
-        run: |
-          if [ -z "${{ secrets.access_key_id }}" ] || [ -z "${{ secrets.access_key_secret }}" ]; then
-            echo "OSS secrets not configured, skipping"
-            exit 0
-          fi
-          pip install oss2
-          python ./actions-workflows/scripts/get_oss_secrets.py \
-            --ak "${{ secrets.access_key_id }}" \
-            --sk "${{ secrets.access_key_secret }}" \
-            --endpoint "${{ inputs.OSS_ENDPOINT }}" \
-            --bucket "${{ inputs.OSS_BUCKET }}" \
-            --key secrets.json >> $GITHUB_ENV
-
-      - name: Export docker creds for downstream jobs
-        id: export-docker-creds
-        run: |
-          echo "docker-username=${DOCKER_ALICLOUD_USERNAME}" >> "$GITHUB_OUTPUT"
-          echo "docker-password=${DOCKER_ALICLOUD_PASSWORD}" >> "$GITHUB_OUTPUT"
-          echo "region-id=${DOCKER_ALICLOUD_REGION_ID}" >> "$GITHUB_OUTPUT"
-
-  build-images:
-    name: Build Docker Images
-    if: inputs.trigger-event == 'pull_request'
-    needs: [check-docker-config, load_secrets]
-    uses: ./.github/workflows/_build-image.yml
-    with:
-      has-docker-image: ${{ needs.check-docker-config.outputs.has-docker-image == 'true' }}
-      images: ${{ needs.check-docker-config.outputs.images }}
-      region-id: ${{ needs.load_secrets.outputs.region-id }}
-      trigger-event: ${{ inputs.trigger-event }}
-    secrets:
-      docker-username: ${{ needs.load_secrets.outputs.docker-username }}
-      docker-password: ${{ needs.load_secrets.outputs.docker-password }}
-      ACCESS_KEY_ID: ${{ secrets.access_key_id }}
-      ACCESS_KEY_SECRET: ${{ secrets.access_key_secret }}
 
   unit_test:
     name: Run ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].name }} Unit Tests
@@ -447,3 +383,32 @@ jobs:
           docker run --rm \
             springboot-test:${{ github.sha }} \
             bash ${{ fromJSON(needs.check-docker-config.outputs.tests)[0].command }}
+
+  build-images:
+    name: Build Docker Images
+    if: inputs.trigger-event == 'pull_request' && needs.check-docker-config.outputs.has-docker-image == 'true'
+    needs: [check-docker-config, unit_test]
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      images: ${{ needs.check-docker-config.outputs.images }}
+      trigger-event: ${{ inputs.trigger-event }}
+      OSS_ENDPOINT: ${{ inputs.OSS_ENDPOINT }}
+      OSS_BUCKET: ${{ inputs.OSS_BUCKET }}
+    secrets:
+      ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
+      ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}
+
+  deploy-images:
+    name: Deploy Docker Images
+    if: inputs.trigger-event == 'push' && needs.check-docker-config.outputs.has-docker-image == 'true'
+    needs: [check-docker-config, unit_test]
+    uses: ./.github/workflows/_docker-deploy.yml
+    with:
+      images: ${{ needs.check-docker-config.outputs.images }}
+      trigger-event: ${{ inputs.trigger-event }}
+      OSS_ENDPOINT: ${{ inputs.OSS_ENDPOINT }}
+      OSS_BUCKET: ${{ inputs.OSS_BUCKET }}
+      DEPLOY_ENV: ${{ inputs.DEPLOY_ENV }}
+    secrets:
+      ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
+      ACCESS_KEY_SECRET: ${{ secrets.ACCESS_KEY_SECRET }}
