@@ -64,8 +64,8 @@ jobs:
 
       - name: Get ECS IP or Fallback
         env:
-          ALICLOUD_ACCESS_KEY: ${{ secrets.ALICLOUD_ACCESS_KEY }}
-          ALICLOUD_SECRET_KEY: ${{ secrets.ALICLOUD_SECRET_KEY }}
+          ALICLOUD_ACCESS_KEY: ${{ needs.load_secrets.outputs.terraform-user-access-key }}
+          ALICLOUD_SECRET_KEY: ${{ needs.load_secrets.outputs.terraform-user-secret-key }}
         run: |
           cd tf-config/projects/github-actions-demo
           terraform init
