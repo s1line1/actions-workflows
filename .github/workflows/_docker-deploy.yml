@@ -115,4 +115,4 @@ jobs:
           echo "Using inventory: $INVENTORY"
           cd ansible-playbook && \
           ANSIBLE_HOST_KEY_CHECKING=false ansible-playbook -i $INVENTORY github-actions-demo/deploy.yml \
-          -e "env=${{ inputs.DEPLOY_ENV }} acr_password=${{ needs.deploy_load_secrets.outputs.docker-password }}" --private-key ~/.ssh/id_rsa -u root
+          -e "env=${{ inputs.DEPLOY_ENV }} acr_password=${{ needs.deploy_load_secrets.outputs.docker-password }} acr_user=${{ needs.deploy_load_secrets.outputs.docker-username }}" --private-key ~/.ssh/id_rsa -u root
