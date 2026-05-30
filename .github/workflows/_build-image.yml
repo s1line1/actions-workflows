@@ -85,7 +85,14 @@ jobs:
 
       - name: Build and push image to ACR
         run: |
-          docker build --tag "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}:${{ needs.calculate.outputs.image_tag }}" .
+          if [ -z "${{ fromJSON(inputs.images)[0].dockerfile }}" ]; then
+            echo "Dockerfile not found in docker-image.yml, skipping"
+            exit 0
+          fi
+          docker build \
+            --tag "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}:${{ needs.calculate.outputs.image_tag }}" \
+            -f ${{ fromJSON(inputs.images)[0].dockerfile }} \
+            .
           docker push "${{ fromJSON(inputs.images)[0].registry }}/${{ fromJSON(inputs.images)[0].namespace }}/${{ fromJSON(inputs.images)[0].name }}:${{ needs.calculate.outputs.image_tag }}"
 
   scan:
